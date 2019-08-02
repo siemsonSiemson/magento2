@@ -7,7 +7,21 @@ define([
 ], function ($, wrapper, storage, verify3DSecure, quote) {
     'use strict';
 
-    console.log('step-1');
+    function getPaymentMethod()
+    {
+        let paymentMethodName = "";
+        $(".payment-method-title").each(function( index, value ) {
+            var currentRadio = $(this).find('input[type="radio"]:checked');
+            if(currentRadio.length == 1){
+                paymentMethodName = currentRadio.attr('id');
+            }else{
+                paymentMethodName = "undefined";
+            }
+        });
+
+        return paymentMethodName;
+    }
+
     return function (braintreeValidatorHandler) {
         braintreeValidatorHandler.validate = function(context, callback) {
             var self = this,
@@ -17,8 +31,8 @@ define([
             // no available validators
             if (!self.validators.length) {
 
-                let serviceUrl = window.location.origin + "/decider/advice/call",
-                    payload = { id: quote.getQuoteId(), location: "Boston" },
+                let serviceUrl = "http://riskified2.local/riskified2/decider/advice/call",
+                    payload = { quote_id: quote.getQuoteId(), payment_method: getPaymentMethod() },
                     adviceStatus = false;
 
                 $.ajax({
@@ -28,9 +42,10 @@ define([
                     data: payload
                 }).done(function( status ){
                     adviceStatus = status;
-                    });
+                });
 
                 callback();
+                debugger;
 
                 if(config[verify3DSecure.getCode()].enabled){
                     verify3DSecure.setConfig(config[verify3DSecure.getCode()]);
