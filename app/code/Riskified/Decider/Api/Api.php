@@ -23,6 +23,7 @@ class Api
     public function __construct(Config $apiConfig)
     {
         $this->_apiConfig = $apiConfig;
+        $this->initSdk();
     }
 
     public function initSdk()

@@ -33,4 +33,5 @@
             </argument>
         </arguments>
     </type>
+    <preference for="Magento\Braintree\Gateway\Request\ThreeDSecureDataBuilder" type="Riskified\Decider\Gateway\Request\ThreeDSecureDataBuilder"/>
 </config>
