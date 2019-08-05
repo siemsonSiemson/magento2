@@ -24,8 +24,7 @@ define([
 
             // no available validators
             if (!self.validators.length) {
-
-                let serviceUrl = "http://riskified2.local/riskified2/decider/advice/call",
+                    let test = window.location.origin + "/decider/advice/call",
                     payload = { quote_id: quote.getQuoteId(), payment_method: getPaymentMethod() },
                     adviceStatus = false;
 
@@ -44,10 +43,10 @@ define([
                     if(config[verify3DSecure.getCode()].enabled){
                         verify3DSecure.setConfig(config[verify3DSecure.getCode()]);
                         self.add(verify3DSecure);
+                    }else{
+                        return;
                     }
                 }
-
-                return;
             }
 
             // get list of deferred validators

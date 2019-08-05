@@ -66,7 +66,7 @@ class Advice {
             ["checkout" => [
                 "id" => $quoteObject->getId(),
                 "currency" => $currencyObject->getQuoteCurrencyCode(),
-                "total_price" => $grandTotal['value'],
+                "total_price" => $quoteObject->getGrandTotal(),
                 "payment_details" => [
                     [
                         "avs_result_code" => "Y",
