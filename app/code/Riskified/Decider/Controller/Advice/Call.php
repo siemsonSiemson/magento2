@@ -65,7 +65,6 @@ class Call extends \Magento\Framework\App\Action\Action
     /**
      * Function fetches post data from order payment step, and passing it to Riskified Advice Api validation.
      * As a response validation status is returned.
-     *
      * @return \Magento\Framework\App\ResponseInterface|\Magento\Framework\Controller\Result\Json|\Magento\Framework\Controller\ResultInterface
      * @throws \Riskified\OrderWebhook\Exception\CurlException
      * @throws \Riskified\OrderWebhook\Exception\UnsuccessfulActionException
@@ -74,10 +73,11 @@ class Call extends \Magento\Framework\App\Action\Action
     {
         $params = $this->request->getParams();
         $this->api->initSdk();
+
+        $this->logger->log('Riskified Advise Call building json data from quote id: ' . $params['quote_id']);
         $this->adviceBuilder->build($params);
         $callResponse = $this->adviceBuilder->request();
         $this->logger->log('Riskified Advise Call Response status: ' . $callResponse->checkout->status);
-
         $adviceCallStatus = ($callResponse->checkout->status == "captured" ? true : false);
 
         //use this status while backend order validation

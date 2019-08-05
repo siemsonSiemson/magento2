@@ -91,6 +91,7 @@ class Advice {
      */
     public function request()
     {
+
         return $this->adviceRequestModel->call($this->json);
     }
 }

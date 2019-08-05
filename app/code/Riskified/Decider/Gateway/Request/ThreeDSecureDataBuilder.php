@@ -7,6 +7,7 @@ use Magento\Payment\Gateway\Data\OrderAdapterInterface;
 use Magento\Braintree\Gateway\SubjectReader;
 use Magento\Payment\Gateway\Request\BuilderInterface;
 use Magento\Payment\Helper\Formatter;
+use Riskified\Decider\Api\Log as Logger;
 
 class ThreeDSecureDataBuilder implements BuilderInterface
 {
@@ -15,68 +16,98 @@ class ThreeDSecureDataBuilder implements BuilderInterface
     /**
      * @var \Magento\Checkout\Model\Session
      */
-    private $_session;
+    private $session;
 
     /**
      * @var \Magento\Braintree\Gateway\Config\Config
      */
-    private $_config;
+    private $config;
 
     /**
      * @var \Magento\Braintree\Gateway\SubjectReader
      */
-    private $_subjectReader;
+    private $subjectReader;
 
+    /**
+     * @var Logger
+     */
+    private $logger;
+
+    /**
+     * ThreeDSecureDataBuilder constructor.
+     * @param Config $config
+     * @param SubjectReader $subjectReader
+     * @param \Magento\Checkout\Model\Session $session
+     * @param Logger $logger
+     */
     public function __construct(
-        \Magento\Braintree\Gateway\Config\Config $_config,
-        \Magento\Braintree\Gateway\SubjectReader $_subjectReader,
-        \Magento\Checkout\Model\Session $_session
+        \Magento\Braintree\Gateway\Config\Config $config,
+        \Magento\Braintree\Gateway\SubjectReader $subjectReader,
+        \Magento\Checkout\Model\Session $session,
+        Logger $logger
     ){
-        $this->_session = $_session;
-        $this->_config = $_config;
-        $this->_subjectReader = $_subjectReader;
+        $this->session = $session;
+        $this->config = $config;
+        $this->subjectReader = $subjectReader;
+        $this->logger = $logger;
     }
 
     /**
-     * @inheritdoc
+     * Function checks against Riskified-Advise-Api condition. In case of refuse-response 3DSecure safety will be enabled.
+     * @param array $buildSubject
+     * @return array|null
+     * @throws \Magento\Framework\Exception\InputException
+     * @throws \Magento\Framework\Exception\NoSuchEntityException
      */
     public function build(array $buildSubject)
     {
         $result = [];
-        $paymentDO = $this->_subjectReader->readPayment($buildSubject);
-        $amount = $this->formatPrice($this->_subjectReader->readAmount($buildSubject));
-        $adviceCallStatus = $this->_session->getAdviceCallStatus();
+        $paymentDO = $this->subjectReader->readPayment($buildSubject);
+        $amount = $this->formatPrice($this->subjectReader->readAmount($buildSubject));
+        $adviceCallStatus = $this->session->getAdviceCallStatus();
 
+        $this->logger->log('Riskified Advise Call backend validation.');
         if($adviceCallStatus !== true){
-            $result['options'][Config::CODE_3DSECURE] = ['required' => true];
+            if ($this->is3DSecureEnabled($paymentDO->getOrder(), $amount)) {
+                $result['options'][Config::CODE_3DSECURE] = ['required' => true];
+                $this->logger->log('Riskified Advise refuse response - 3D secure enabled.');
+
+                return $result;
+            }else{
+                $this->logger->log('Riskified Advise refuse response - 3D not available to be enabled.');
+
+                return null;
+            }
+            $this->logger->log('Riskified Advise positive response - no need to enable 3D secure.');
+
+            return $result;
+        }else{
+            if ($this->is3DSecureEnabled($paymentDO->getOrder(), $amount)) {
+                $result['options'][Config::CODE_3DSECURE] = ['required' => true];
+            }
 
             return $result;
         }
-
-        if ($this->is3DSecureEnabled($paymentDO->getOrder(), $amount)) {
-            $result['options'][Config::CODE_3DSECURE] = ['required' => true];
-        }
-
-        return $result;
     }
 
     /**
-     * Check if 3d secure is enabled
      * @param OrderAdapterInterface $order
-     * @param float $amount
+     * @param $amount
      * @return bool
+     * @throws \Magento\Framework\Exception\InputException
+     * @throws \Magento\Framework\Exception\NoSuchEntityException
      */
     private function is3DSecureEnabled(OrderAdapterInterface $order, $amount)
     {
         $storeId = $order->getStoreId();
-        if (!$this->_config->isVerify3DSecure($storeId)
-            || $amount < $this->_config->getThresholdAmount($storeId)
+        if (!$this->config->isVerify3DSecure($storeId)
+            || $amount < $this->config->getThresholdAmount($storeId)
         ) {
             return false;
         }
 
         $billingAddress = $order->getBillingAddress();
-        $specificCounties = $this->_config->get3DSecureSpecificCountries($storeId);
+        $specificCounties = $this->config->get3DSecureSpecificCountries($storeId);
         if (!empty($specificCounties) && !in_array($billingAddress->getCountryId(), $specificCounties)) {
             return false;
         }
