@@ -1,4 +1,5 @@
 <?php
+
 namespace Riskified\Decider\Api;
 
 use Riskified\Common\Signature;
@@ -31,9 +32,7 @@ class Order
         \Magento\Framework\Stdlib\DateTime\DateTime $date,
         \Riskified\Decider\Model\QueueFactory $queueFactory,
         \Magento\Framework\Session\SessionManagerInterface $session
-
-    )
-    {
+    ) {
         $this->_api = $api;
         $this->_orderHelper = $orderHelper;
         $this->_apiConfig = $apiConfig;
@@ -87,6 +86,9 @@ class Order
                 case Api::ACTION_FULFILL:
                     $orderForTransport = $this->_orderHelper->getOrderFulfillments();
                     $response = $transport->fulfillOrder($orderForTransport);
+                case Api::ACTION_CHECKOUT_DENIED:
+                    $checkoutForTransport = $this->loadQuote($order);
+                    $response = $transport->deniedCheckout($checkoutForTransport);
                     break;
             }
             $eventData['response'] = $response;
@@ -105,7 +107,7 @@ class Order
             );
             throw $curlException;
         } catch (\Riskified\OrderWebhook\Exception\MalformedJsonException $e) {
-            if(strstr($e->getMessage(), "504") && strstr($e->getMessage(), "Status Code:")) {
+            if (strstr($e->getMessage(), "504") && strstr($e->getMessage(), "Status Code:")) {
                 $this->_raiseOrderUpdateEvent($order, 'error', null, 'Error transferring order data to Riskified');
                 $this->scheduleSubmissionRetry($order, $action);
             }
@@ -124,7 +126,7 @@ class Order
         return $response;
     }
 
-    private function _raiseOrderUpdateEvent($order, $status, $oldStatus, $description)
+    protected function _raiseOrderUpdateEvent($order, $status, $oldStatus, $description)
     {
         $eventData = array(
             'order' => $order,
@@ -146,10 +148,56 @@ class Order
         return;
     }
 
-    private function getCustomerSession()
+    private function loadQuote($model)
     {
-        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-        return $objectManager->get('Magento\Customer\Model\Session');
+        $gateway = 'unavailable';
+        if ($model->getPayment()) {
+            $gateway = $model->getPayment()->getMethod();
+        }
+        $order_array = [
+            'id' => (int) $model->getQuoteId(),
+            'name' => $model->getIncrementId(),
+            'email' => $model->getCustomerEmail(),
+            'created_at' => $this->_orderHelper->formatDateAsIso8601($model->getCreatedAt()),
+            'currency' => $model->getOrderCurrencyCode(),
+            'updated_at' => $this->_orderHelper->formatDateAsIso8601($model->getUpdatedAt()),
+            'gateway' => $gateway,
+            'browser_ip' => $this->_orderHelper->getRemoteIp(),
+            'note' => $model->getCustomerNote(),
+            'total_price' => $model->getGrandTotal(),
+            'total_discounts' => $model->getDiscountAmount(),
+            'subtotal_price' => $model->getBaseSubtotalInclTax(),
+            'discount_codes' => $this->_orderHelper->getDiscountCodes($model),
+            'taxes_included' => true,
+            'total_tax' => $model->getBaseTaxAmount(),
+            'total_weight' => $model->getWeight(),
+            'cancelled_at' => $this->_orderHelper->formatDateAsIso8601($this->_orderHelper->getCancelledAt()),
+            'financial_status' => $model->getState(),
+            'fulfillment_status' => $model->getStatus(),
+            'vendor_id' => $model->getStoreId(),
+            'vendor_name' => $model->getStoreName(),
+            'cart_token' => $this->session->getSessionId()
+        ];
+
+        if ($this->_orderHelper->getCustomerSession()->isLoggedIn()) {
+            unset($order_array['browser_ip']);
+            unset($order_array['cart_token']);
+        }
+        $payload = array_filter($order_array, 'strlen');
+
+        $order = new Model\Checkout($payload);
+
+        $order->customer = $this->_orderHelper->getCustomer();
+        $order->shipping_address = $this->_orderHelper->getShippingAddress();
+        $order->billing_address = $this->_orderHelper->getBillingAddress();
+        $order->payment_details = $this->_orderHelper->getPaymentDetails();
+        $order->line_items = $this->_orderHelper->getLineItems();
+        $order->shipping_lines = $this->_orderHelper->getShippingLines();
+
+        if (!$this->_backendAuthSession->isLoggedIn()) {
+            $order->client_details = $this->_orderHelper->getClientDetails();
+        }
+        return $order;
     }
 
     private function load($model)
@@ -272,9 +320,9 @@ class Order
     public function postHistoricalOrders($models)
     {
         if (!$this->_apiConfig->isEnabled()) {
-            return;
+            return $this;
         }
-        $orders = array();
+        $orders = [];
 
         foreach ($models as $model) {
             $orders[] = $this->getOrder($model);
@@ -295,11 +343,11 @@ class Order
 
             if ($existingRetries->getSize() == 0) {
                 $queue = $this->queueFactory->create();
-                $queue->addData(array(
-                        'order_id' => $order->getId(),
-                        'action' => $action,
-                        'updated_at' => $this->date->gmtDate()
-                ))->save();
+                $queue->addData([
+                    'order_id' => $order->getId(),
+                    'action' => $action,
+                    'updated_at' => $this->date->gmtDate()
+                ])->save();
 
                 $this->logger->log("New retry scheduled successfully");
             }

@@ -10,7 +10,6 @@ class Js extends Template
 {
     private $apiConfig;
     private $session;
-    protected $_isScopePrivate = false;
 
     public function __construct(
         Context $context,

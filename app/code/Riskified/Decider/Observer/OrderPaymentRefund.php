@@ -14,8 +14,7 @@ class OrderPaymentRefund implements ObserverInterface
         \Riskified\Decider\Api\Log $logger,
         \Riskified\Decider\Api\Order $orderApi,
         \Magento\Framework\Message\ManagerInterface $messageManager
-    )
-    {
+    ) {
         $this->logger = $logger;
         $this->apiOrderLayer = $orderApi;
         $this->messageManager = $messageManager;
