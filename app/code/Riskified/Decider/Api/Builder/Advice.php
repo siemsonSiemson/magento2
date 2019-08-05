@@ -4,7 +4,7 @@ namespace Riskified\Decider\Api\Builder;
 use Riskified\Decider\Api\Request\Advice as AdviceRequest;
 use \Magento\Checkout\Model\Session;
 use \Magento\Framework\Serialize\Serializer\Json;
-use \Magento\Quote\Model\QuoteFactory;
+use \Magento\Quote\Api\CartRepositoryInterface;
 
 class Advice {
     /**
@@ -23,84 +23,64 @@ class Advice {
      * @var Json
      */
     private $serializer;
+
     /**
-     * @var QuoteFactory
+     * @var CartRepositoryInterface
      */
-    protected $quoteFactory;
+    protected $quoteRepository;
 
     /**
      * Advice constructor.
      * @param AdviceRequest $requestAdvice
      * @param Session $checkoutSession
-     * @param QuoteFactory $quoteFactory
+     * @param CartRepositoryInterface $quoteRepository
      * @param Json $serializer
      */
     public function __construct(
         AdviceRequest $requestAdvice,
         Session $checkoutSession,
-        QuoteFactory $quoteFactory,
+        CartRepositoryInterface $quoteRepository,
         Json $serializer
     ){
         $this->adviceRequestModel = $requestAdvice;
         $this->checkoutSession = $checkoutSession;
-        $this->quoteFactory = $quoteFactory;
+        $this->quoteRepository = $quoteRepository;
         $this->serializer = $serializer;
     }
-    /**
+
+    /**Magento\Quote\Model\Quote\Interceptor
+     * @param $params
      * @return $this
      */
     public function build($params)
     {
-        if(empty($params)){
-            $this->json = $this->serializer->serialize(
-                ["checkout" => [
-                    "id" => '2234',
-                    "currency" => "USD",
-                    "total_price" => 319.00,
-                    "payment_details" => [
-                        [
-                            "authorization_id"=> "d3j555kdjgnngkkf3_1",
-                            "payer_email"=> "customer1@service-mail.com",
-                            "payer_status"=> "verified",
-                            "payer_address_status"=> "unconfirmed",
-                            "protection_eligibility"=> "Eligible",
-                            "payment_status"=> "completed",
-                            "pending_reason"=> "None",
-                        ]
-                    ],
-                    "_type" => "paypal",
-                    "gateway" => "paypal"
-                ]
-                ]
-            );
-        }else{
+        $quoteId = $params['quote_id'];
+        $quoteObject = $this->quoteRepository->get($quoteId);
+        $totals = $quoteObject->getTotals();
+        $grandTotal = $totals['grand_total'];
+        $currencyObject = $quoteObject->getCurrency();
+        $customerObject = $quoteObject->getCustomer();
+        $paymentObject = $quoteObject->getPayment();
 
-            $quoteId = $params['quote_id'];
-            $quoteObject = $this->quoteFactory->create()->load($quoteId);
-            $quoteData = $quoteObject->getData();
-
-            $this->json = $this->serializer->serialize(
-                ["checkout" => [
-                    "id" => $quoteData['entity_id'],
-                    "currency" => $quoteData['quote_currency_code'],
-                    "total_price" => $quoteData['grand_total'],
-                    "payment_details" => [
-                        [
-                            "authorization_id"=> "d3j555kdjgnngkkf3_1",
-                            "payer_email"=> $quoteData['customer_email'],
-                            "payer_status"=> "verified",
-                            "payer_address_status"=> "unconfirmed",
-                            "protection_eligibility"=> "Eligible",
-                            "payment_status"=> "completed",
-                            "pending_reason"=> "None",
-                        ]
-                    ],
-                    "_type" => $params['payment_method'],
-                    "gateway" => $params['payment_method']
-                ]
-                ]
-            );
-        }
+        $this->json = $this->serializer->serialize(
+            ["checkout" => [
+                "id" => $quoteObject->getId(),
+                "currency" => $currencyObject->getQuoteCurrencyCode(),
+                "total_price" => $grandTotal['value'],
+                "payment_details" => [
+                    [
+                        "avs_result_code" => "Y",
+                        "credit_card_bin" => "123456",
+                        "credit_card_company" => "Visa",
+                        "credit_card_number" => "4111111111111111",
+                        "cvv_result_code" => "M"
+                    ]
+                ],
+                "_type" => 'credit_card',
+                "gateway" => $paymentObject->getMethod()
+            ]
+            ]
+        );
 
         return $this;
     }
@@ -111,7 +91,6 @@ class Advice {
      */
     public function request()
     {
-
         return $this->adviceRequestModel->call($this->json);
     }
 }

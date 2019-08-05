@@ -43,12 +43,11 @@ class ThreeDSecureDataBuilder implements BuilderInterface
     public function build(array $buildSubject)
     {
         $result = [];
-
         $paymentDO = $this->_subjectReader->readPayment($buildSubject);
         $amount = $this->formatPrice($this->_subjectReader->readAmount($buildSubject));
         $adviceCallStatus = $this->_session->getAdviceCallStatus();
 
-        if($adviceCallStatus != "true"){
+        if($adviceCallStatus !== true){
             $result['options'][Config::CODE_3DSECURE] = ['required' => true];
 
             return $result;

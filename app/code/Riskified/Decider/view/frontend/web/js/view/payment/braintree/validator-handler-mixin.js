@@ -3,23 +3,17 @@ define([
     'mage/utils/wrapper',
     'mage/storage',
     'Magento_Braintree/js/view/payment/3d-secure',
-    'Magento_Checkout/js/model/quote'
-], function ($, wrapper, storage, verify3DSecure, quote) {
+    'Magento_Checkout/js/model/quote',
+    'Magento_Braintree/js/view/payment/adapter'
+], function ($, wrapper, storage, verify3DSecure, quote, paymentAdapter) {
     'use strict';
+
 
     function getPaymentMethod()
     {
-        let paymentMethodName = "";
-        $(".payment-method-title").each(function( index, value ) {
-            var currentRadio = $(this).find('input[type="radio"]:checked');
-            if(currentRadio.length == 1){
-                paymentMethodName = currentRadio.attr('id');
-            }else{
-                paymentMethodName = "undefined";
-            }
-        });
+        let choosenPaymentMethod = $(".payment-method-title").find('input[type="radio"]:checked');
 
-        return paymentMethodName;
+        return choosenPaymentMethod.attr('id');
     }
 
     return function (braintreeValidatorHandler) {
@@ -41,15 +35,16 @@ define([
                     url: serviceUrl,
                     data: payload
                 }).done(function( status ){
-                    adviceStatus = status;
+                    adviceStatus = status.advice_status;
                 });
 
                 callback();
-                debugger;
 
-                if(config[verify3DSecure.getCode()].enabled){
-                    verify3DSecure.setConfig(config[verify3DSecure.getCode()]);
-                    self.add(verify3DSecure);
+                if(adviceStatus !== true){
+                    if(config[verify3DSecure.getCode()].enabled){
+                        verify3DSecure.setConfig(config[verify3DSecure.getCode()]);
+                        self.add(verify3DSecure);
+                    }
                 }
 
                 return;

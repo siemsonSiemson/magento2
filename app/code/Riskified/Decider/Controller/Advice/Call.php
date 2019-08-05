@@ -11,73 +11,78 @@ class Call extends \Magento\Framework\App\Action\Action
     /**
      * @var AdviceBuilder
      */
-    private $_adviceBuilder;
+    private $adviceBuilder;
 
     /**
      * @var AdviceRequest
      */
-    private $_adviceRequest;
+    private $adviceRequest;
 
     /**
      * @var Api
      */
-    private $_api;
+    private $api;
 
     /**
      * @var Logger
      */
-    private $_logger;
+    private $logger;
 
     /**
      * @var \Magento\Checkout\Model\Session
      */
-    private $_session;
+    private $session;
 
     /**
      * @var \Magento\Framework\App\RequestInterface
      */
-    protected $_request;
+    protected $request;
 
-    /**
-     * AdviceCall constructor.
-     * @param \Magento\Framework\App\Action\Context $context
-     * @param Logger $_logger
-     * @param AdviceBuilder $_adviceBuilder
-     * @param AdviceRequest $_adviceRequest
-     * @param Api $_api
-     */
+    protected $resultJsonFactory;
+
+
     public function __construct(
+        \Magento\Framework\Controller\Result\JsonFactory $resultJsonFactory,
         \Magento\Framework\App\Action\Context $context,
-        \Magento\Checkout\Model\Session $_session,
-        \Magento\Framework\App\Request\Http $_request,
-        Logger $_logger,
-        AdviceBuilder $_adviceBuilder,
-        AdviceRequest $_adviceRequest,
-        Api $_api
+        \Magento\Framework\App\Request\Http $request,
+        \Magento\Checkout\Model\Session $session,
+        AdviceBuilder $adviceBuilder,
+        AdviceRequest $adviceRequest,
+        Logger $logger,
+        Api $api
     ){
-        $this->_adviceBuilder = $_adviceBuilder;
-        $this->_adviceRequest = $_adviceRequest;
-        $this->_request = $_request;
-        $this->_session = $_session;
-        $this->_api = $_api;
-        $this->_logger = $_logger;
+        $this->resultJsonFactory = $resultJsonFactory;
+        $this->adviceBuilder = $adviceBuilder;
+        $this->adviceRequest = $adviceRequest;
+        $this->request = $request;
+        $this->session = $session;
+        $this->logger = $logger;
+        $this->api = $api;
 
         return parent::__construct($context);
     }
 
+    /**
+     * Function fetches post data from order payment step, and passing it to Riskified Advice Api validation.
+     * As a response validation status is returned.
+     *
+     * @return \Magento\Framework\App\ResponseInterface|\Magento\Framework\Controller\Result\Json|\Magento\Framework\Controller\ResultInterface
+     * @throws \Riskified\OrderWebhook\Exception\CurlException
+     * @throws \Riskified\OrderWebhook\Exception\UnsuccessfulActionException
+     */
     public function execute()
     {
-        $params = $this->_request->getParams();
-        $this->_api->initSdk();
-        $this->_adviceBuilder->build($params);
-        $callResponse = $this->_adviceBuilder->request();
-        $this->_logger->log('Riskified Advise Call Response status: ' . $callResponse->checkout->status);
+        $params = $this->request->getParams();
+        $this->api->initSdk();
+        $this->adviceBuilder->build($params);
+        $callResponse = $this->adviceBuilder->request();
+        $this->logger->log('Riskified Advise Call Response status: ' . $callResponse->checkout->status);
 
-        $adviceCallStatus = ($callResponse->checkout->status == "captured" ? 'true' : 'false');
+        $adviceCallStatus = ($callResponse->checkout->status == "captured" ? true : false);
 
         //use this status while backend order validation
-        $this->_session->setAdviceCallStatus($adviceCallStatus);
+        $this->session->setAdviceCallStatus($adviceCallStatus);
 
-        echo $adviceCallStatus;
+        return  $this->resultJsonFactory->create()->setData(['advice_status' => $adviceCallStatus]);
     }
 }
