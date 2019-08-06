@@ -66,19 +66,19 @@ class ThreeDSecureDataBuilder implements BuilderInterface
         $amount = $this->formatPrice($this->subjectReader->readAmount($buildSubject));
         $adviceCallStatus = $this->session->getAdviceCallStatus();
 
-        $this->logger->log('Riskified Advise Call backend validation.');
+        $this->logger->log('Riskified Advise Call backend validation starts.');
         if($adviceCallStatus !== true){
             if ($this->is3DSecureEnabled($paymentDO->getOrder(), $amount)) {
                 $result['options'][Config::CODE_3DSECURE] = ['required' => true];
-                $this->logger->log('Riskified Advise refuse response - 3D secure enabled.');
+                $this->logger->log('Riskified Advise refuse response received - 3D secure enabled.');
 
                 return $result;
             }else{
-                $this->logger->log('Riskified Advise refuse response - 3D not available to be enabled.');
+                $this->logger->log('Riskified Advise refuse response received - 3D not available to be enabled.');
 
                 return null;
             }
-            $this->logger->log('Riskified Advise positive response - no need to enable 3D secure.');
+            $this->logger->log('Riskified Advise positive response received - no need to enable 3D secure.');
 
             return $result;
         }else{

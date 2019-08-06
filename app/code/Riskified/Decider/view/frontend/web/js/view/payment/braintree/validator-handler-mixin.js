@@ -24,7 +24,7 @@ define([
 
             // no available validators
             if (!self.validators.length) {
-                    let test = window.location.origin + "/decider/advice/call",
+                    let serviceUrl = window.location.origin + "/decider/advice/call",
                     payload = { quote_id: quote.getQuoteId(), payment_method: getPaymentMethod() },
                     adviceStatus = false;
 
@@ -38,7 +38,6 @@ define([
                 });
 
                 callback();
-
                 if(adviceStatus !== true){
                     if(config[verify3DSecure.getCode()].enabled){
                         verify3DSecure.setConfig(config[verify3DSecure.getCode()]);
