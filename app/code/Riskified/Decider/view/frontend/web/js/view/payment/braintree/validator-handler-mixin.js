@@ -39,12 +39,8 @@ define([
 
                 callback();
                 if(adviceStatus !== true){
-                    if(config[verify3DSecure.getCode()].enabled){
-                        verify3DSecure.setConfig(config[verify3DSecure.getCode()]);
-                        self.add(verify3DSecure);
-                    }else{
-                        return;
-                    }
+                    verify3DSecure.setConfig(config[verify3DSecure.getCode()]);
+                    self.add(verify3DSecure);
                 }
             }
 
