@@ -1,108 +1,107 @@
 <?php
+namespace Riskified\Decider\Api\Builder;
 
-namespace Riskified\Decider\Gateway\Request;
+use Riskified\Decider\Api\Request\Advice as AdviceRequest;
+use \Magento\Checkout\Model\Session;
+use \Magento\Framework\Serialize\Serializer\Json;
+use \Magento\Quote\Api\CartRepositoryInterface;
+use \Magento\Quote\Model\QuoteIdMaskFactory;
 
-use Magento\Braintree\Gateway\Config\Config;
-use Magento\Payment\Gateway\Data\OrderAdapterInterface;
-use Magento\Braintree\Gateway\SubjectReader;
-use Magento\Payment\Gateway\Request\BuilderInterface;
-use Magento\Payment\Helper\Formatter;
-use Riskified\Decider\Api\Log as Logger;
-
-class ThreeDSecureDataBuilder implements BuilderInterface
-{
-    use Formatter;
-
+class Advice {
     /**
-     * @var \Magento\Checkout\Model\Session
+     * @var AdviceRequest
      */
-    private $session;
-
+    private $adviceRequestModel;
     /**
-     * @var \Magento\Braintree\Gateway\Config\Config
+     * @var Session
      */
-    private $config;
-
+    private $checkoutSession;
     /**
-     * @var \Magento\Braintree\Gateway\SubjectReader
+     * @var
      */
-    private $subjectReader;
-
+    private $json;
     /**
-     * @var Logger
+     * @var Json
      */
-    private $logger;
+    private $serializer;
 
     /**
-     * ThreeDSecureDataBuilder constructor.
-     * @param Config $config
-     * @param SubjectReader $subjectReader
-     * @param \Magento\Checkout\Model\Session $session
-     * @param Logger $logger
+     * @var CartRepositoryInterface
+     */
+    protected $cartRepository;
+
+    /**
+     * Advice constructor.
+     * @param QuoteIdMaskFactory $quoteIdMaskFactory
+     * @param CartRepositoryInterface $cartRepository
+     * @param AdviceRequest $requestAdvice
+     * @param Session $checkoutSession
+     * @param Json $serializer
      */
     public function __construct(
-        \Magento\Braintree\Gateway\Config\Config $config,
-        \Magento\Braintree\Gateway\SubjectReader $subjectReader,
-        \Magento\Checkout\Model\Session $session,
-        Logger $logger
+        QuoteIdMaskFactory $quoteIdMaskFactory,
+        CartRepositoryInterface $cartRepository,
+        AdviceRequest $requestAdvice,
+        Session $checkoutSession,
+        Json $serializer
     ){
-        $this->session = $session;
-        $this->config = $config;
-        $this->subjectReader = $subjectReader;
-        $this->logger = $logger;
+        $this->quoteIdMaskFactory = $quoteIdMaskFactory;
+        $this->adviceRequestModel = $requestAdvice;
+        $this->checkoutSession = $checkoutSession;
+        $this->cartRepository = $cartRepository;
+        $this->serializer = $serializer;
     }
 
-    /**
-     * Function checks against Riskified-Advise-Api condition. In case of refuse-response 3DSecure safety will be enabled.
-     * @param array $buildSubject
-     * @return array|null
-     * @throws \Magento\Framework\Exception\InputException
-     * @throws \Magento\Framework\Exception\NoSuchEntityException
+    /**Magento\Quote\Model\Quote\Interceptor
+     * @param $params
+     * @return $this
      */
-    public function build(array $buildSubject)
+    public function build($params)
     {
-        $result = [];
-        $paymentDO = $this->subjectReader->readPayment($buildSubject);
-        $amount = $this->formatPrice($this->subjectReader->readAmount($buildSubject));
-        $adviceCallStatus = $this->session->getAdviceCallStatus();
-        $this->logger->log('Riskified Advise Call backend validation starts.');
-
-        if($adviceCallStatus !== true){
-            $result['options'][Config::CODE_3DSECURE] = ['required' => true];
-            $this->logger->log('Riskified Advise refuse response received - 3D secure is added.');
-
-            return $result;
-        }else{
-            if ($this->is3DSecureEnabled($paymentDO->getOrder(), $amount)) {
-                $result['options'][Config::CODE_3DSECURE] = ['required' => true];
-            }
-
-            return $result;
+        $quoteId = $params['quote_id'];
+        if (!is_numeric($quoteId)) {
+            $quoteIdMask = $this->quoteIdMaskFactory->create()->load($quoteId, 'masked_id');
+            $cart = $this->cartRepository->getActive($quoteIdMask->getQuoteId());
+        } else {
+            $cart = $this->cartRepository->getActive($quoteId);
         }
+
+        $totals = $cart->getTotals();
+        $grandTotal = $totals['grand_total'];
+        $currencyObject = $cart->getCurrency();
+        $customerObject = $cart->getCustomer();
+        $paymentObject = $cart->getPayment();
+
+        $this->json = $this->serializer->serialize(
+            ["checkout" => [
+                "id" => $cart->getId(),
+                "currency" => $currencyObject->getQuoteCurrencyCode(),
+                "total_price" => $cart->getGrandTotal(),
+                "payment_details" => [
+                    [
+                        "avs_result_code" => "Y",
+                        "credit_card_bin" => "123456",
+                        "credit_card_company" => "Visa",
+                        "credit_card_number" => "4111111111111111",
+                        "cvv_result_code" => "M"
+                    ]
+                ],
+                "_type" => 'credit_card',
+                "gateway" => $paymentObject->getMethod()
+            ]
+            ]
+        );
+
+        return $this;
     }
-
     /**
-     * @param OrderAdapterInterface $order
-     * @param $amount
-     * @return bool
-     * @throws \Magento\Framework\Exception\InputException
-     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @return mixed
+     * @throws \Riskified\OrderWebhook\Exception\CurlException
+     * @throws \Riskified\OrderWebhook\Exception\UnsuccessfulActionException
      */
-    private function is3DSecureEnabled(OrderAdapterInterface $order, $amount)
+    public function request()
     {
-        $storeId = $order->getStoreId();
-        if (!$this->config->isVerify3DSecure($storeId)
-            || $amount < $this->config->getThresholdAmount($storeId)
-        ) {
-            return false;
-        }
 
-        $billingAddress = $order->getBillingAddress();
-        $specificCounties = $this->config->get3DSecureSpecificCountries($storeId);
-        if (!empty($specificCounties) && !in_array($billingAddress->getCountryId(), $specificCounties)) {
-            return false;
-        }
-
-        return true;
+        return $this->adviceRequestModel->call($this->json);
     }
 }

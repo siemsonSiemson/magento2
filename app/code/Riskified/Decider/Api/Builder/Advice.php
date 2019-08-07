@@ -5,6 +5,7 @@ use Riskified\Decider\Api\Request\Advice as AdviceRequest;
 use \Magento\Checkout\Model\Session;
 use \Magento\Framework\Serialize\Serializer\Json;
 use \Magento\Quote\Api\CartRepositoryInterface;
+use \Magento\Quote\Model\QuoteIdMaskFactory;
 
 class Advice {
     /**
@@ -27,24 +28,27 @@ class Advice {
     /**
      * @var CartRepositoryInterface
      */
-    protected $quoteRepository;
+    protected $cartRepository;
 
     /**
      * Advice constructor.
+     * @param QuoteIdMaskFactory $quoteIdMaskFactory
+     * @param CartRepositoryInterface $cartRepository
      * @param AdviceRequest $requestAdvice
      * @param Session $checkoutSession
-     * @param CartRepositoryInterface $quoteRepository
      * @param Json $serializer
      */
     public function __construct(
+        QuoteIdMaskFactory $quoteIdMaskFactory,
+        CartRepositoryInterface $cartRepository,
         AdviceRequest $requestAdvice,
         Session $checkoutSession,
-        CartRepositoryInterface $quoteRepository,
         Json $serializer
     ){
+        $this->quoteIdMaskFactory = $quoteIdMaskFactory;
         $this->adviceRequestModel = $requestAdvice;
         $this->checkoutSession = $checkoutSession;
-        $this->quoteRepository = $quoteRepository;
+        $this->cartRepository = $cartRepository;
         $this->serializer = $serializer;
     }
 
@@ -55,18 +59,24 @@ class Advice {
     public function build($params)
     {
         $quoteId = $params['quote_id'];
-        $quoteObject = $this->quoteRepository->get($quoteId);
-        $totals = $quoteObject->getTotals();
+        if (!is_numeric($quoteId)) {
+            $quoteIdMask = $this->quoteIdMaskFactory->create()->load($quoteId, 'masked_id');
+            $cart = $this->cartRepository->getActive($quoteIdMask->getQuoteId());
+        } else {
+            $cart = $this->cartRepository->getActive($quoteId);
+        }
+
+        $totals = $cart->getTotals();
         $grandTotal = $totals['grand_total'];
-        $currencyObject = $quoteObject->getCurrency();
-        $customerObject = $quoteObject->getCustomer();
-        $paymentObject = $quoteObject->getPayment();
+        $currencyObject = $cart->getCurrency();
+        $customerObject = $cart->getCustomer();
+        $paymentObject = $cart->getPayment();
 
         $this->json = $this->serializer->serialize(
             ["checkout" => [
-                "id" => $quoteObject->getId(),
+                "id" => $cart->getId(),
                 "currency" => $currencyObject->getQuoteCurrencyCode(),
-                "total_price" => $quoteObject->getGrandTotal(),
+                "total_price" => $cart->getGrandTotal(),
                 "payment_details" => [
                     [
                         "avs_result_code" => "Y",
