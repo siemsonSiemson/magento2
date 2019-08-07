@@ -37,11 +37,11 @@ define([
                     adviceStatus = status.advice_status;
                 });
 
-                callback();
                 if(adviceStatus !== true){
                     verify3DSecure.setConfig(config[verify3DSecure.getCode()]);
                     self.add(verify3DSecure);
                 }else{
+                    callback();
                     return;
                 }
             }
