@@ -19,11 +19,6 @@ class Js extends Template
     private $session;
 
     /**
-     * @var bool
-     */
-    protected $_isScopePrivate = false;
-
-    /**
      * Js constructor.
      *
      * @param Context $context

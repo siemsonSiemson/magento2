@@ -80,33 +80,9 @@ class UpdateOrderState implements ObserverInterface
         $newState = $newStatus = null;
         $currentState = $order->getState();
         $currentStatus = $order->getStatus();
-
-        $this->logger->log(
-            sprintf(
-                "Checking if should update order '%s' from state: '%s' and status: '%s'",
-                $order->getId(),
-                $currentState,
-                $currentStatus
-            )
-        );
-
-        $this->logger->log(
-            sprintf(
-                "Data received from riskified: status: %s, old_status: %s, description: %s",
-                $riskifiedStatus,
-                $riskifiedOldStatus,
-                $description
-            )
-        );
-
-        $this->logger->log(
-            sprintf(
-                "On Hold Status Code : %s and Transport Error Status Code : %s",
-                $this->apiOrderConfig->getOnHoldStatusCode(),
-                $this->apiOrderConfig->getTransportErrorStatusCode()
-            )
-        );
-
+        $this->logger->log("Checking if should update order '" . $order->getId() . "' from state: '$currentState' and status: '$currentStatus'");
+        $this->logger->log("Data received from riskified: status: " . $riskifiedStatus . ", old_status: " . $riskifiedOldStatus . ", description: " . $description);
+        $this->logger->log("On Hold Status Code : " . $this->apiOrderConfig->getOnHoldStatusCode() . " and Transport Error Status Code : " . $this->apiOrderConfig->getTransportErrorStatusCode());
         switch ($riskifiedStatus) {
             case 'approved':
                 if ($currentState == Order::STATE_HOLDED
