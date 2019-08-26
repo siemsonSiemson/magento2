@@ -67,7 +67,6 @@ class Advice {
         }
 
         $totals = $cart->getTotals();
-        $grandTotal = $totals['grand_total'];
         $currencyObject = $cart->getCurrency();
         $customerObject = $cart->getCustomer();
         $paymentObject = $cart->getPayment();
@@ -75,12 +74,13 @@ class Advice {
         $this->json = $this->serializer->serialize(
             ["checkout" => [
                 "id" => $cart->getId(),
+                "email" => $customerObject->getEmail(),
                 "currency" => $currencyObject->getQuoteCurrencyCode(),
                 "total_price" => $cart->getGrandTotal(),
                 "payment_details" => [
                     [
                         "avs_result_code" => "Y",
-                        "credit_card_bin" => "123456",
+                        "credit_card_bin" => "492044",
                         "credit_card_company" => "Visa",
                         "credit_card_number" => "4111111111111111",
                         "cvv_result_code" => "M"
@@ -101,7 +101,7 @@ class Advice {
      */
     public function request()
     {
-
+        
         return $this->adviceRequestModel->call($this->json);
     }
 }
