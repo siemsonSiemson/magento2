@@ -77,8 +77,19 @@ class Call extends \Magento\Framework\App\Action\Action
         $this->logger->log('Riskified Advise Call building json data from quote id: ' . $params['quote_id']);
         $this->adviceBuilder->build($params);
         $callResponse = $this->adviceBuilder->request();
-        $this->logger->log('Riskified Advise Call Response status: ' . $callResponse->checkout->status);
-        $adviceCallStatus = ($callResponse->checkout->status == "captured" ? true : false);
+        $status = $callResponse->checkout->status;
+        $authType = $callResponse->checkout->authentication_type->auth_type;
+        $this->logger->log('Riskified Advise Call Response status: ' . $status);
+
+        if($status != "captured"){
+            $adviceCallStatus = false;
+        }else {
+            if($authType == "sca" || $authType == "tra"){
+                $adviceCallStatus = false;
+            }else{
+                $adviceCallStatus = true;
+            }
+        }
 
         //use this status while backend order validation
         $this->session->setAdviceCallStatus($adviceCallStatus);
