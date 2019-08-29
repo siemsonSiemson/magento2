@@ -7,7 +7,7 @@ use Magento\Payment\Gateway\Data\OrderAdapterInterface;
 use Magento\Braintree\Gateway\SubjectReader;
 use Magento\Payment\Gateway\Request\BuilderInterface;
 use Magento\Payment\Helper\Formatter;
-use Riskified\Decider\ModelApi\Log as Logger;
+use Riskified\Decider\Model\Api\Log as Logger;
 
 class ThreeDSecureDataBuilder implements BuilderInterface
 {
