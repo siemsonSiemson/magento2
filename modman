@@ -6,4 +6,4 @@ Model/                          app/code/Riskified/Decider/Model
 Plugin/                         app/code/Riskified/Decider/Plugin
 Setup/                          app/code/Riskified/Decider/Setup
 view/                           app/code/Riskified/Decider/view
-vendor/riskified_php_sdk        vendor/riskified_php_sdk
+registration.php                app/code/Riskified/Decider/registration.php
