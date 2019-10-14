@@ -59,6 +59,7 @@ class Advice {
     public function build($params)
     {
         $quoteId = $params['quote_id'];
+        $gateway = $params['gateway'];
         if (!is_numeric($quoteId)) {
             $quoteIdMask = $this->quoteIdMaskFactory->create()->load($quoteId, 'masked_id');
             $cart = $this->cartRepository->getActive($quoteIdMask->getQuoteId());
@@ -66,31 +67,54 @@ class Advice {
             $cart = $this->cartRepository->getActive($quoteId);
         }
 
-        $totals = $cart->getTotals();
         $currencyObject = $cart->getCurrency();
         $customerObject = $cart->getCustomer();
         $paymentObject = $cart->getPayment();
 
-        $this->json = $this->serializer->serialize(
-            ["checkout" => [
-                "id" => $cart->getId(),
-                "email" => $customerObject->getEmail(),
-                "currency" => $currencyObject->getQuoteCurrencyCode(),
-                "total_price" => $cart->getGrandTotal(),
-                "payment_details" => [
-                    [
-                        "avs_result_code" => "Y",
-                        "credit_card_bin" => "492044",
-                        "credit_card_company" => "Visa",
-                        "credit_card_number" => "4111111111111111",
-                        "cvv_result_code" => "M"
+        if($gateway == "braintree_paypal"){
+            $this->json = $this->serializer->serialize(
+                [
+                    "checkout" => [
+                    "id" => $cart->getId(),
+                    "email" => $customerObject->getEmail(),
+                    "currency" => $currencyObject->getQuoteCurrencyCode(),
+                    "total_price" => $cart->getGrandTotal(),
+                    "payment_details" => [
+                        [
+                            "payer_email" => $params['email'],
+                            'payer_status' => 'verified',
+                            'payer_address_status' => 'unconfirmed',
+                            'protection_eligibility' => 'Eligible',
+                        ]
+                    ],
+                    "_type" => 'paypal',
+                    "gateway" => $paymentObject->getMethod(),
                     ]
-                ],
-                "_type" => 'credit_card',
-                "gateway" => $paymentObject->getMethod()
-            ]
-            ]
-        );
+                ]
+            );
+        }else{
+            $this->json = $this->serializer->serialize(
+                [
+                    "checkout" => [
+                    "id" => $cart->getId(),
+                    "email" => $customerObject->getEmail(),
+                    "currency" => $currencyObject->getQuoteCurrencyCode(),
+                    "total_price" => $cart->getGrandTotal(),
+                    "payment_details" => [
+                        [
+                            "avs_result_code" => "Y",
+                            "credit_card_bin" => "492044",
+                            "credit_card_company" => "Visa",
+                            "credit_card_number" => "4111111111111111",
+                            "cvv_result_code" => "M"
+                        ]
+                    ],
+                    "_type" => 'credit_card',
+                    "gateway" => $paymentObject->getMethod(),
+                    ]
+                ]
+            );
+        }
 
         return $this;
     }

@@ -25,7 +25,7 @@ define([
             // no available validators
             if (!self.validators.length) {
                 let serviceUrl = window.location.origin + "/decider/advice/call",
-                    payload = { quote_id: quote.getQuoteId(), payment_method: getPaymentMethod() },
+                    payload = { quote_id: quote.getQuoteId(), gateway: "braintree_cc" },
                     adviceStatus = false;
 
                 $.ajax({
