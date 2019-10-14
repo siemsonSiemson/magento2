@@ -210,7 +210,8 @@ define([
         beforePlaceOrder: function (data) {
             //check Riskified-Api-Advise-Call response
             var serviceUrl = window.location.origin + "/decider/advice/call",
-                params = { quote_id: quote.getQuoteId(), gateway: "braintree_paypal", email:  data.details.email};
+                params = { quote_id: quote.getQuoteId(), gateway: "braintree_paypal", email:  data.details.email},
+                adviseCallStatus = false;
 
             $.ajax({
                 method: "POST",
@@ -219,10 +220,14 @@ define([
                 url: serviceUrl
             }).done(function( status ){
                 //adjust status for 3D Secure validation
-                if(status.advice_status == false){
-                    return;
+                if(status.advice_status == true){
+                    adviseCallStatus = true;
                 }
             });
+
+            if(adviseCallStatus == false){
+                return;
+            }
 
             this.setPaymentMethodNonce(data.nonce);
 
