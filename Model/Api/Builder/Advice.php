@@ -59,7 +59,13 @@ class Advice {
     public function build($params)
     {
         $quoteId = $params['quote_id'];
-        $gateway = $params['gateway'];
+
+        if(isset($params['gateway'])){
+            $gateway = $params['gateway'];
+        }else{
+            $gateway = '';
+        }
+
         if (!is_numeric($quoteId)) {
             $quoteIdMask = $this->quoteIdMaskFactory->create()->load($quoteId, 'masked_id');
             $cart = $this->cartRepository->getActive($quoteIdMask->getQuoteId());
