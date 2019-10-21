@@ -35,8 +35,7 @@ define(
                     threeDS2Status = response.threeDS2;
 
                 //check Riskified-Api-Advise-Call response
-                //var serviceUrl = window.location.origin + "/decider/advice/call",
-                var serviceUrl = "http://riskified2test.local/riskified2Test/decider/advice/call",
+                var serviceUrl = window.location.origin + "/decider/advice/call",
                     params = { quote_id: quote.getQuoteId(), gateway: "adyen_cc" },
                     adviceStatus = false;
 
