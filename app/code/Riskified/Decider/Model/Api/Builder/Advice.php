@@ -65,12 +65,20 @@ class Advice {
         }else{
             $gateway = '';
         }
+        try {
+            if (!is_numeric($quoteId)) {
+                $quoteIdMask = $this->quoteIdMaskFactory->create()->load($quoteId, 'masked_id');
+                $cart = $this->cartRepository->getActive($quoteIdMask->getQuoteId());
+            } else {
+                $cart = $this->cartRepository->getActive($quoteId);
+            }
+        } catch(\Exception $e) {
+            $stdClass = new stdClass();
+            $checkout = new stdClass();
+            $checkout->status = 'notcaptured';
+            $stdClass->checkout = $checkout;
 
-        if (!is_numeric($quoteId)) {
-            $quoteIdMask = $this->quoteIdMaskFactory->create()->load($quoteId, 'masked_id');
-            $cart = $this->cartRepository->getActive($quoteIdMask->getQuoteId());
-        } else {
-            $cart = $this->cartRepository->getActive($quoteId);
+            return $stdClass;
         }
 
         $currencyObject = $cart->getCurrency();
@@ -103,7 +111,7 @@ class Advice {
                 [
                     "checkout" => [
                     "id" => $cart->getId(),
-                    "email" => $customerObject->getEmail(),
+                    "email" => isset($params['email']) ? $params['email'] : $customerObject->getEmail(),
                     "currency" => $currencyObject->getQuoteCurrencyCode(),
                     "total_price" => $cart->getGrandTotal(),
                     "payment_details" => [
@@ -131,7 +139,7 @@ class Advice {
      */
     public function request()
     {
-        
-        return $this->adviceRequestModel->call($this->json);
+        $response =  $this->adviceRequestModel->call($this->json);
+        return $response;
     }
 }
