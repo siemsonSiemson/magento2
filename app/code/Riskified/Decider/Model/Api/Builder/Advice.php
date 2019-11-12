@@ -73,8 +73,8 @@ class Advice {
                 $cart = $this->cartRepository->getActive($quoteId);
             }
         } catch(\Exception $e) {
-            $stdClass = new stdClass();
-            $checkout = new stdClass();
+            $stdClass = new \stdClass();
+            $checkout = new \stdClass();
             $checkout->status = 'notcaptured';
             $stdClass->checkout = $checkout;
 
