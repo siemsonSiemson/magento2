@@ -24,7 +24,7 @@ define([
 
             // no available validators
             if (!self.validators.length) {
-                let serviceUrl = window.location.origin + "/decider/advice/call",
+                var serviceUrl = window.location.origin + "/decider/advice/call",
                     payload = {
                         quote_id: quote.getQuoteId(),
                         email : quote.guestEmail,

@@ -26,6 +26,11 @@ class Advice {
     private $serializer;
 
     /**
+     * @var QuoteIdMaskFactory
+     */
+    private $quoteIdMaskFactory;
+
+    /**
      * @var CartRepositoryInterface
      */
     protected $cartRepository;
@@ -68,13 +73,13 @@ class Advice {
         try {
             if (!is_numeric($quoteId)) {
                 $quoteIdMask = $this->quoteIdMaskFactory->create()->load($quoteId, 'masked_id');
-                $cart = $this->cartRepository->getActive($quoteIdMask->getQuoteId());
+                $cart = $this->cartRepository->get($quoteIdMask->getQuoteId());
             } else {
-                $cart = $this->cartRepository->getActive($quoteId);
+                $cart = $this->cartRepository->get($quoteId);
             }
         } catch(\Exception $e) {
-            $stdClass = new stdClass();
-            $checkout = new stdClass();
+            $stdClass = new \stdClass();
+            $checkout = new \stdClass();
             $checkout->status = 'notcaptured';
             $stdClass->checkout = $checkout;
 
@@ -132,6 +137,7 @@ class Advice {
 
         return $this;
     }
+
     /**
      * @return mixed
      * @throws \Riskified\OrderWebhook\Exception\CurlException
@@ -142,4 +148,6 @@ class Advice {
         $response =  $this->adviceRequestModel->call($this->json);
         return $response;
     }
+
+
 }
