@@ -2,6 +2,7 @@
 namespace Riskified\Decider\Controller\Advice;
 
 use http\Exception\RuntimeException;
+use Magento\Payment\Gateway\Http\Converter\Soap\ObjectToArrayConverter;
 use Riskified\Decider\Model\Api\Builder\Advice as AdviceBuilder;
 use Riskified\Decider\Model\Api\Request\Advice as AdviceRequest;
 use \Magento\Quote\Model\QuoteFactory;
@@ -46,9 +47,24 @@ class Call extends \Magento\Framework\App\Action\Action
     private $quoteFactory;
 
     /**
+     * @var \Riskified\Decider\Api\Order
+     */
+    private $apiOrderLayer;
+
+    /**
      * @var \Magento\Framework\Controller\Result\JsonFactory
      */
     protected $resultJsonFactory;
+
+    /**
+     * @var \Magento\Sales\Model\OrderRepository
+     */
+    protected $orderRepository;
+
+    /**
+     * @var OrderPaymentFailed
+     */
+    protected $observer;
 
     /**
      * Call constructor.
@@ -64,19 +80,25 @@ class Call extends \Magento\Framework\App\Action\Action
      */
     public function __construct(
         \Magento\Framework\Controller\Result\JsonFactory $resultJsonFactory,
+        \Magento\Sales\Model\OrderRepository $orderRepository,
         \Magento\Framework\App\Action\Context $context,
         \Magento\Framework\App\Request\Http $request,
         \Magento\Checkout\Model\Session $session,
+        \Riskified\Decider\Api\Order $orderApi,
+        \Riskified\Decider\Observer\OrderPaymentFailed $observer,
         QuoteFactory $quoteFactory,
         AdviceBuilder $adviceBuilder,
         AdviceRequest $adviceRequest,
         Logger $logger,
         Api $api
     ){
-        $this->quoteFactory = $quoteFactory;
         $this->resultJsonFactory = $resultJsonFactory;
+        $this->orderRepository = $orderRepository;
         $this->adviceBuilder = $adviceBuilder;
         $this->adviceRequest = $adviceRequest;
+        $this->quoteFactory = $quoteFactory;
+        $this->apiOrderLayer = $orderApi;
+        $this->observer = $observer;
         $this->request = $request;
         $this->session = $session;
         $this->logger = $logger;
@@ -97,12 +119,17 @@ class Call extends \Magento\Framework\App\Action\Action
      */
     public function execute()
     {
+        $this->setOrderAsFailed();
         $params = $this->request->getParams();
         //When 3D Secure response is denied
         if(isset($params['mode'])){
             $quoteId = $params['quote_id'];
             //saves 3D Secure Response data in quotePayment table (additional data)
             $this->updateQuotePaymentDetailsInDb($quoteId, $params);
+            //deny order creation
+            $this->setOrderAsFailed();
+
+            return $this->resultJsonFactory->create()->setData(['response' => 'Order was denied -3DSecure denied.']);
         }else{
             $this->api->initSdk();
             $this->logger->log('Riskified Advise Call building json data from quote id: ' . $params['quote_id']);
@@ -125,6 +152,8 @@ class Call extends \Magento\Framework\App\Action\Action
                 $adviceCallStatus = 3;
                 $message = 'Checkout Declined.';
                 $this->messageManager->addError(__("Checkout Declined"));
+                //deny order creation
+                $this->setOrderAsFailed();
             }else {
                 if($authType == "sca"){
                     $adviceCallStatus = false;
@@ -135,7 +164,7 @@ class Call extends \Magento\Framework\App\Action\Action
                 }
             }
 
-            return  $this->resultJsonFactory->create()->setData(['advice_status' => false, 'message' => $message]);
+            return  $this->resultJsonFactory->create()->setData(['advice_status' => $adviceCallStatus, 'message' => $message]);
         }
     }
 
@@ -145,7 +174,7 @@ class Call extends \Magento\Framework\App\Action\Action
      * @param $paymentDetails
      * @throws \Exception
      */
-    public function updateQuotePaymentDetailsInDb($quoteId, $paymentDetails)
+    private function updateQuotePaymentDetailsInDb($quoteId, $paymentDetails)
     {
         $quoteFactory = $this->quoteFactory;
         $quote = $quoteFactory->create()->load($quoteId);
@@ -173,5 +202,16 @@ class Call extends \Magento\Framework\App\Action\Action
         }else{
             $this->logger->log('Quote ' . $quoteId . ' not found to save additional quotePayment data in db.');
         }
+    }
+
+    /**
+     * function call checkout payment event observer.
+     */
+    private function setOrderAsFailed()
+    {
+        $this->_eventManager->dispatch(
+            'riskified_decider_order_update_failed',
+            [$this->getRequest()->getParams()]
+        );
     }
 }

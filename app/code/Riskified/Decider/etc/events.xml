@@ -25,4 +25,8 @@
         <observer name="riskified_decider_order_update_declined"
                   instance="Riskified\Decider\Observer\Order\Declined"/>
     </event>
+    <event name="riskified_decider_order_update_failed">
+        <observer name="riskified_decider_order_update_failed"
+                  instance="Riskified\Decider\Observer\OrderPaymentFailed"/>
+    </event>
 </config>
