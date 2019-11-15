@@ -54,6 +54,7 @@ define([
             });
 
             if(adviseCallStatus == false){
+                alert('Riskified checkout denied.');
                 return;
             }
 

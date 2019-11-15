@@ -164,7 +164,7 @@ class Call extends \Magento\Framework\App\Action\Action
                 }
             }
 
-            return  $this->resultJsonFactory->create()->setData(['advice_status' => $adviceCallStatus, 'message' => $message]);
+            return  $this->resultJsonFactory->create()->setData(['advice_status' => true, 'message' => $message]);
         }
     }
 
