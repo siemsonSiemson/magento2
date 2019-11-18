@@ -25,7 +25,11 @@ define([
             // no available validators
             if (!self.validators.length) {
                 let serviceUrl = window.location.origin + "/decider/advice/call",
-                    payload = { quote_id: quote.getQuoteId(), gateway: "braintree_cc" },
+                    payload = {
+                        quote_id: quote.getQuoteId(),
+                        email : quote.guestEmail,
+                        gateway: "braintree_cc"
+                    },
                     adviceStatus = false;
 
                 $.ajax({
@@ -37,13 +41,17 @@ define([
                     adviceStatus = status.advice_status;
                 });
 
-                if(adviceStatus !== true){
-                    verify3DSecure.setConfig(config[verify3DSecure.getCode()]);
-                    self.add(verify3DSecure);
-                }
-                else{
+                if(adviceStatus === true){
                     callback();
                     return;
+                } else {
+                    if (adviceStatus !== 3) {
+                        verify3DSecure.setConfig(config[verify3DSecure.getCode()]);
+                        self.add(verify3DSecure);
+                    } else {
+                        self.showError("The order was declined.");
+                        return;
+                    }
                 }
             }
 

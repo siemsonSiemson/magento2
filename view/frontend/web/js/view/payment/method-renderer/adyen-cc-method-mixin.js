@@ -36,28 +36,28 @@ define(
 
                 //check Riskified-Api-Advise-Call response
                 var serviceUrl = window.location.origin + "/decider/advice/call",
-                    params = { quote_id: quote.getQuoteId(), gateway: "adyen_cc" },
+                    payload = {
+                        quote_id: quote.getQuoteId(),
+                        email : quote.guestEmail,
+                        gateway: "adyen_cc"
+                    },
                     adviceStatus = false;
 
                 $.ajax({
                     method: "POST",
                     async: false,
-                    data: params,
+                    data: payload,
                     url: serviceUrl
                 }).done(function( status ){
                     //adjust status for 3D Secure validation
-                    adviceStatus = status.advice_status;
-                    if(adviceStatus == false){
-                        threeDS2Status == true;
-                    }else{
-                        threeDS2Status == false;
-                    }
+                    threeDS2Status = status.advice_status;
                 });
 
-                if (threeDS2Status == false) {
+                if (threeDS2Status == 3) {
                     fullScreenLoader.stopLoader();
+                    self.showError("The order was declined.");
                     self.isPlaceOrderActionAllowed(false);
-                } else if(!!response.threeDS2) {
+                } else if(threeDS2Status === true) {
                     // render component
                     self.renderThreeDS2Component(response.type, response.token);
                 } else {
@@ -83,10 +83,8 @@ define(
             }
         };
 
-        return function (target) { // target == Result that Magento_Ui/.../columns returns.
-            return target.extend(mixin); // new result that all other modules receive
+        return function (target) {
+            return target.extend(mixin);
         };
     }
 );
-
-
