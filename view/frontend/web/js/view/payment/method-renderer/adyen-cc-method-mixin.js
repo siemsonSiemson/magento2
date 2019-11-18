@@ -58,16 +58,21 @@ define(
                     fullScreenLoader.stopLoader();
                     self.isPlaceOrderActionAllowed(false);
                     alert.showError("The order was declined.");
-                } else if(!!response.threeDS2 || threeDS2Status === false) {
+                } else if(!!response.threeDS2) {
                     // render 3D Secure iframe component
                     self.renderThreeDS2Component(response.type, response.token);
                 } else {
-                    window.location.replace(url.build(
-                        window.checkoutConfig.payment[quote.paymentMethod().method].redirectUrl)
-                    );
+                    //when 3Dsecure not enabled in admin but Riskifed requires it.
+                    if(threeDS2Status !== true){
+                        // render 3D Secure iframe component
+                        self.renderThreeDS2Component(response.type, response.token);
+                    }else{
+                        window.location.replace(url.build(
+                            window.checkoutConfig.payment[quote.paymentMethod().method].redirectUrl)
+                        );
+                    }
                 }
             },
-
             /**
              * Modiffied function for rendering the 3DS2.0 components.
              * In case 3DSecure refuse submit try then order data is send to Riskified.
