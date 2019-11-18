@@ -23,6 +23,10 @@ class Advice {
      */
     private $serializer;
     /**
+     * @var QuoteIdMaskFactory
+     */
+    private $quoteIdMaskFactory;
+    /**
      * @var CartRepositoryInterface
      */
     protected $cartRepository;
@@ -62,9 +66,9 @@ class Advice {
         try {
             if (!is_numeric($quoteId)) {
                 $quoteIdMask = $this->quoteIdMaskFactory->create()->load($quoteId, 'masked_id');
-                $cart = $this->cartRepository->getActive($quoteIdMask->getQuoteId());
+                $cart = $this->cartRepository->get($quoteIdMask->getQuoteId());
             } else {
-                $cart = $this->cartRepository->getActive($quoteId);
+                $cart = $this->cartRepository->get($quoteId);
             }
         } catch(\Exception $e) {
             $stdClass = new \stdClass();

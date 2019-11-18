@@ -40,8 +40,7 @@ define(
                         quote_id: quote.getQuoteId(),
                         email : quote.guestEmail,
                         gateway: "adyen_cc"
-                    },
-                    adviceStatus = false;
+                    };
 
                 $.ajax({
                     method: "POST",
@@ -55,10 +54,10 @@ define(
 
                 if (threeDS2Status == 3) {
                     fullScreenLoader.stopLoader();
-                    self.showError("The order was declined.");
                     self.isPlaceOrderActionAllowed(false);
+                    alert.showError("The order was declined.");
                 } else if(threeDS2Status === true) {
-                    // render component
+                    // render component data
                     self.renderThreeDS2Component(response.type, response.token);
                 } else {
                     self.getPlaceOrderDeferredObject()
