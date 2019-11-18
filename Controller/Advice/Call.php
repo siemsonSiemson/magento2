@@ -4,8 +4,8 @@ use http\Exception\RuntimeException;
 use Riskified\Decider\Model\Api\Builder\Advice as AdviceBuilder;
 use Riskified\Decider\Model\Api\Request\Advice as AdviceRequest;
 use \Magento\Quote\Model\QuoteFactory;
-use Riskified\Decider\Api\Log as Logger;
-use Riskified\Decider\Api\Api;
+use Riskified\Decider\Model\Api\Log as Logger;
+use Riskified\Decider\Model\Api\Api;
 class Call extends \Magento\Framework\App\Action\Action
 {
     /**
