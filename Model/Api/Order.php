@@ -194,8 +194,7 @@ class Order
             );
             throw $e;
         }
-        var_dump($response);
-        var_dump($action);
+
         return $response;
     }
 
