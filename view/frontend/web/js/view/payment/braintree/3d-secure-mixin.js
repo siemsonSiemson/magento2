@@ -101,7 +101,7 @@ define([
                             state.resolve();
                         } else {
                             //saving 3D Secure Refuse reason in db.
-                            var serviceUrl = window.location.origin + "/decider/advice/call",
+                            var serviceUrl = window.location.origin + "/decider/order/deny",
                                 payload = {
                                     mode: 'braintree-3DS-deny',
                                     quote_id: quote.getQuoteId(),

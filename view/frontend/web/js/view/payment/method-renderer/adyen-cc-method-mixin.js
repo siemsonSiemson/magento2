@@ -64,8 +64,12 @@ define(
                 } else {
                     //when 3Dsecure not enabled in admin but Riskifed requires it.
                     if(threeDS2Status !== true){
+                        //build 3D Secure
+                        // var threeDS2Node = document.getElementById('threeDS2Container');
+                        // self.threeDS2IdentifyComponent.mount(threeDS2Node);
                         // render 3D Secure iframe component
-                        self.renderThreeDS2Component(response.type, response.token);
+                        // self.renderThreeDS2Component(response.type, response.token);
+                        alert('chosen card 3D additional support, use:  3714 4963 5398 431');
                     }else{
                         window.location.replace(url.build(
                             window.checkoutConfig.payment[quote.paymentMethod().method].redirectUrl)
@@ -133,7 +137,7 @@ define(
                                 }).fail(function (result) {
                                     //save 3DSecure refuse reason in db & send quote data to Riskified
                                     var responseData = result.responseJSON,
-                                        serviceUrl = window.location.origin + "/decider/advice/call",
+                                        serviceUrl = window.location.origin + "/decider/order/deny",
                                         payload = {
                                             mode: 'adyen-cc-3DS-deny',
                                             quote_id: quote.getQuoteId(),
