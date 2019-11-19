@@ -7,9 +7,15 @@ use Riskified\Decider\Model\Api\Log as Logger;
 use \Magento\Quote\Model\QuoteFactory;
 use http\Exception\RuntimeException;
 use Riskified\Decider\Model\Api\Api;
+use \Magento\Framework\Registry;
+
 
 class Deny extends \Magento\Framework\App\Action\Action
 {
+    /**
+     * @var Registry
+     */
+    private $registry;
     /**
      * @var AdviceBuilder
      */
@@ -48,15 +54,16 @@ class Deny extends \Magento\Framework\App\Action\Action
     protected $resultJsonFactory;
 
     /**
-     * Call constructor.
+     * Deny constructor.
      * @param \Magento\Framework\Controller\Result\JsonFactory $resultJsonFactory
+     * @param \Magento\Quote\Model\QuoteIdMaskFactory $quoteIdMaskFactory
      * @param \Magento\Framework\App\Action\Context $context
      * @param \Magento\Framework\App\Request\Http $request
      * @param \Magento\Checkout\Model\Session $session
-     * @param QuoteIdMaskFactory $quoteIdMaskFactory
      * @param QuoteFactory $quoteFactory
      * @param AdviceBuilder $adviceBuilder
      * @param AdviceRequest $adviceRequest
+     * @param Registry $registry
      * @param Logger $logger
      * @param Api $api
      */
@@ -69,6 +76,7 @@ class Deny extends \Magento\Framework\App\Action\Action
         QuoteFactory $quoteFactory,
         AdviceBuilder $adviceBuilder,
         AdviceRequest $adviceRequest,
+        Registry $registry,
         Logger $logger,
         Api $api
     ){
@@ -77,6 +85,7 @@ class Deny extends \Magento\Framework\App\Action\Action
         $this->adviceBuilder = $adviceBuilder;
         $this->adviceRequest = $adviceRequest;
         $this->quoteFactory = $quoteFactory;
+        $this->registry = $registry;
         $this->request = $request;
         $this->session = $session;
         $this->logger = $logger;
@@ -97,13 +106,13 @@ class Deny extends \Magento\Framework\App\Action\Action
     {
         $params = $this->request->getParams();
         $quoteId = $this->getQuoteId($params['quote_id']);
+        $quote = $this->registry->registry($quoteId);
         $message = 'Quote ' . $quoteId . 'is set as denied and sent to Riskified. Additional data saved in database (paymentQuote table). 3D Secure verification level - failed.';
 
         //saves 3D Secure Response data in quotePayment table (additional data)
         $this->updateQuotePaymentDetailsInDb($quoteId, $params);
 
         $quoteFactory = $this->quoteFactory;
-        $quote = $quoteFactory->create()->load($quoteId);
         //Riskified defined order as fraud - order data is send to Riskified
         $this->sendDeniedOrderToRiskified($quote);
         $this->logger->log($message);
@@ -119,8 +128,7 @@ class Deny extends \Magento\Framework\App\Action\Action
      */
     protected function updateQuotePaymentDetailsInDb($quoteId, $paymentDetails)
     {
-        $quoteFactory = $this->quoteFactory;
-        $quote = $quoteFactory->create()->load($quoteId);
+        $quote = $this->registry->registry($quoteId);
         if(isset($quote)){
             $this->logger->log('Quote ' . $quoteId . ' found - saving Riskified Advise or 3D Secure Response as additional quotePayment data in db.');
             $quotePayment = $quote->getPayment();
