@@ -100,7 +100,7 @@ class Call extends \Magento\Framework\App\Action\Action
         $quoteId = $this->getQuoteId($params['quote_id']);
 
         $this->api->initSdk();
-        $this->logger->log('Riskified Advise Call building json data from quote id: ' . $params['quote_id']);
+        $this->logger->log('Riskified Advise Call building json data from quote id: ' . $quoteId);
         $this->adviceBuilder->build($params);
         $callResponse = $this->adviceBuilder->request();
         $status = $callResponse->checkout->status;
@@ -116,8 +116,12 @@ class Call extends \Magento\Framework\App\Action\Action
 
         if($status != "captured"){
             $adviceCallStatus = 3;
+            //load Quote object
+            $quoteFactory = $this->quoteFactory;
+            $quote = $quoteFactory->create()->load($quoteId);
             //Riskified defined order as fraud - order data is send to Riskified
-            $this->sendDeniedOrderToRiskified();
+            $this->sendDeniedOrderToRiskified($quote);
+
             $logMessage = 'Quote ' . $quoteId . ' is set as denied and sent to Riskified. Additional data saved in database (paymentQuote table). Riskified verification (advise call) level.';
             $this->logger->log($logMessage);
             $message = 'Checkout Declined.';
@@ -172,11 +176,11 @@ class Call extends \Magento\Framework\App\Action\Action
     /**
      * Sends Denied Quote to Riskified Api
      */
-    protected function sendDeniedOrderToRiskified()
+    protected function sendDeniedOrderToRiskified($quote)
     {
         $this->_eventManager->dispatch(
-            'riskified_decider_checkout_denied',
-            [$this->getRequest()->getParams()]
+            'riskified_decider_deny_order_cause_riskified_fraud_or_thredesecure_fail',
+            ['postPayload' => $this->getRequest()->getParams(), 'quote' => $quote]
         );
     }
 

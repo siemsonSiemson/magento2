@@ -194,6 +194,8 @@ class Order
             );
             throw $e;
         }
+        var_dump($response);
+        var_dump($action);
         return $response;
     }
 
@@ -485,12 +487,12 @@ class Order
             'fulfillment_status' => $model->getStatus(),
             'vendor_id' => $model->getStoreId(),
             'vendor_name' => $model->getStoreName(),
-            'cart_token' => $this->session->getSessionId()
+//            'cart_token' => $this->session->getSessionId()
         ];
-        if ($this->_orderHelper->getCustomerSession()->isLoggedIn()) {
+//        if ($this->_orderHelper->getCustomerSession()->isLoggedIn()) {
             unset($order_array['browser_ip']);
             unset($order_array['cart_token']);
-        }
+//        }
         $payload = array_filter($order_array, 'strlen');
         $order = new Model\Checkout($payload);
         $order->customer = $this->_orderHelper->getCustomer();
@@ -499,6 +501,8 @@ class Order
         $order->payment_details = $this->_orderHelper->getPaymentDetails();
         $order->line_items = $this->_orderHelper->getLineItems();
         $order->shipping_lines = $this->_orderHelper->getShippingLines();
+//        $order->auth_type = 'string optional';
+//        $order->exemption_method = 'string optional';
         if (!$this->_backendAuthSession->isLoggedIn()) {
             $order->client_details = $this->_orderHelper->getClientDetails();
         }

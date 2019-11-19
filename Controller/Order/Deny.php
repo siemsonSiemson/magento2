@@ -102,8 +102,10 @@ class Deny extends \Magento\Framework\App\Action\Action
         //saves 3D Secure Response data in quotePayment table (additional data)
         $this->updateQuotePaymentDetailsInDb($quoteId, $params);
 
+        $quoteFactory = $this->quoteFactory;
+        $quote = $quoteFactory->create()->load($quoteId);
         //Riskified defined order as fraud - order data is send to Riskified
-        $this->sendDeniedOrderToRiskified();
+        $this->sendDeniedOrderToRiskified($quote);
         $this->logger->log($message);
 
         return  $this->resultJsonFactory->create()->setData(['message' => $message]);
