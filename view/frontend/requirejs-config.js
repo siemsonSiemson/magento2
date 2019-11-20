@@ -1,4 +1,10 @@
 var config = {
+    map: {
+        '*': {
+            "Magento_Checkout/js/model/quote" :
+                "Riskified_Decider/js/model/quote"
+        }
+    },
     config: {
         mixins: {
             'Magento_Braintree/js/view/payment/validator-handler': {
