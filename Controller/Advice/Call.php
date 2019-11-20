@@ -128,10 +128,6 @@ class Call extends \Magento\Framework\App\Action\Action
 
         if($status != "captured"){
             $adviceCallStatus = 3;
-
-            //Riskified defined order as fraud - order data is send to Riskified
-            $quote = $this->registry->registry($quoteId);
-            $this->sendDeniedOrderToRiskified($quote);
             $logMessage = 'Quote ' . $quoteId . ' is set as denied and sent to Riskified. Additional data saved in database (paymentQuote table). Riskified verification (advise call) level.';
             $this->logger->log($logMessage);
             $message = 'Checkout Declined.';
@@ -158,39 +154,28 @@ class Call extends \Magento\Framework\App\Action\Action
     protected function updateQuotePaymentDetailsInDb($quoteId, $paymentDetails)
     {
         $quote = $this->registry->registry($quoteId);
-        if(isset($quote)){
+        if (isset($quote)) {
             $this->logger->log('Quote ' . $quoteId . ' found - saving Riskified Advise or 3D Secure Response as additional quotePayment data in db.');
             $quotePayment = $quote->getPayment();
             $currentDate = date('Y-m-d H:i:s', time());
             $additionalData = $quotePayment->getAdditionalData();
             //avoid overwriting quotePayment additional data
-            if(is_array($additionalData)){
+            if (is_array($additionalData)) {
                 $additionalData[$currentDate] = $paymentDetails;
                 $additionalData = json_encode($additionalData);
-            }else{
-                $additionalData = [$currentDate =>$paymentDetails];
+            } else {
+                $additionalData = [$currentDate => $paymentDetails];
                 $additionalData = json_encode($additionalData);
             }
-            try{
+            try {
                 $quotePayment->setAdditionalData($additionalData);
                 $quotePayment->save();
-            }catch(RuntimeException $e){
+            } catch (RuntimeException $e) {
                 $this->logger->log('Cannot save quotePayment additional data ' . $e->getMessage());
             }
-        }else{
+        } else {
             $this->logger->log('Quote ' . $quoteId . ' not found to save additional quotePayment data in db.');
         }
-    }
-
-    /**
-     * Sends Denied Quote to Riskified Api
-     */
-    protected function sendDeniedOrderToRiskified($quote)
-    {
-        $this->_eventManager->dispatch(
-            'riskified_decider_deny_order_cause_riskified_fraud_or_thredesecure_fail',
-            ['postPayload' => $this->getRequest()->getParams(), 'quote' => $quote]
-        );
     }
 
     /**

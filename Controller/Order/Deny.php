@@ -155,11 +155,11 @@ class Deny extends \Magento\Framework\App\Action\Action
     /**
      * Sends Denied Quote to Riskified Api
      */
-    protected function sendDeniedOrderToRiskified()
+    protected function sendDeniedOrderToRiskified($quote)
     {
         $this->_eventManager->dispatch(
-            'riskified_decider_checkout_denied',
-            [$this->getRequest()->getParams()]
+            'riskified_decider_deny_order_cause_riskified_fraud_or_thredesecure_fail',
+            ['postPayload' => $this->getRequest()->getParams(), 'quote' => $quote]
         );
     }
 

@@ -90,7 +90,7 @@ class Advice {
                         "total_price" => $cart->getGrandTotal(),
                         "payment_details" => [
                             [
-                                "payer_email" => $params['email'],
+                                "email" => isset($params['email']) ? $params['email'] : $customerObject->getEmail(),
                                 'payer_status' => 'verified',
                                 'payer_address_status' => 'unconfirmed',
                                 'protection_eligibility' => 'Eligible',
