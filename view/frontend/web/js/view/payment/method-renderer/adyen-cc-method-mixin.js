@@ -33,44 +33,59 @@ define(
             validateThreeDS2OrPlaceOrder: function (responseJSON) {
                 var self = this;
                 var response = JSON.parse(responseJSON),
-                    threeDS2Status = response.threeDS2;
+                    threeDS2Status = response.threeDS2,
+                    quoteThreeDSecureState = quote.getThreeDSecureStatus();
 
-                //check Riskified-Api-Advise-Call response
-                var adviseCallUrl = window.location.origin + "/decider/advice/call",
-                    payload = {
-                        quote_id: quote.getQuoteId(),
-                        email : quote.guestEmail,
-                        gateway: "adyen_cc"
-                    };
+                //avoid advise-call process duplication
+                if(quoteThreeDSecureState == 0){
+                    //check Riskified-Api-Advise-Call response
+                    var adviseCallUrl = window.location.origin + "/decider/advice/call",
+                        payload = {
+                            quote_id: quote.getQuoteId(),
+                            email : quote.guestEmail,
+                            gateway: "adyen_cc"
+                        };
+                    //advise call
+                    $.ajax({
+                        method: "POST",
+                        async: false,
+                        data: payload,
+                        url: adviseCallUrl
+                    }).done(function( status ){
+                        //adjust status for 3D Secure validation
+                        threeDS2Status = status.advice_status;
+                    });
 
-                //advise call
-                $.ajax({
-                    method: "POST",
-                    async: false,
-                    data: payload,
-                    url: adviseCallUrl
-                }).done(function( status ){
-                    //adjust status for 3D Secure validation
-                    threeDS2Status = status.advice_status;
-                });
-
-                if (threeDS2Status == 3) {
-                    fullScreenLoader.stopLoader();
-                    self.isPlaceOrderActionAllowed(false);
-                    alert.showError("The order was declined.");
-                } else if(!!response.threeDS2) {
-                    // render 3D Secure iframe component
-                    self.renderThreeDS2Component(response.type, response.token);
-                } else {
-                    //when 3Dsecure not enabled in admin but Riskifed requires it.
-                    if(threeDS2Status !== true){
-                        //build 3D Secure
-                        // var threeDS2Node = document.getElementById('threeDS2Container');
-                        // self.threeDS2IdentifyComponent.mount(threeDS2Node);
+                    if (threeDS2Status == 3) {
+                        fullScreenLoader.stopLoader();
+                        self.isPlaceOrderActionAllowed(false);
+                        alert.showError("The order was declined.");
+                    } else if(!!response.threeDS2) {
                         // render 3D Secure iframe component
-                        // self.renderThreeDS2Component(response.type, response.token);
-                        alert('chosen card 3D additional support, use:  3714 4963 5398 431');
-                    }else{
+                        self.renderThreeDS2Component(response.type, response.token);
+                    } else {
+                        //when 3Dsecure not enabled in admin but Riskifed requires it.
+                        if(threeDS2Status !== true){
+                            //build 3D Secure
+                            // var threeDS2Node = document.getElementById('threeDS2Container');
+                            // self.threeDS2IdentifyComponent.mount(threeDS2Node);
+                            // render 3D Secure iframe component
+                            // self.renderThreeDS2Component(response.type, response.token);
+                            alert('chosen card 3D additional support, use:  3714 4963 5398 431');
+                        }else{
+                            window.location.replace(url.build(
+                                window.checkoutConfig.payment[quote.paymentMethod().method].redirectUrl)
+                            );
+                        }
+                    }
+                    //change quote 3D Secure state
+                    quote.setThreeDSecureStatus(quoteThreeDSecureState + 1);
+                }else{
+                    //old way of 3D Secure validation (without Riskified)
+                    if (!!response.threeDS2) {
+                        // render component
+                        self.renderThreeDS2Component(response.type, response.token);
+                    } else {
                         window.location.replace(url.build(
                             window.checkoutConfig.payment[quote.paymentMethod().method].redirectUrl)
                         );

@@ -107,12 +107,11 @@ class Deny extends \Magento\Framework\App\Action\Action
         $params = $this->request->getParams();
         $quoteId = $this->getQuoteId($params['quote_id']);
         $quote = $this->registry->registry($quoteId);
-        $message = 'Quote ' . $quoteId . 'is set as denied and sent to Riskified. Additional data saved in database (paymentQuote table). 3D Secure verification level - failed.';
+        $message = 'Quote ' . $quoteId . ' is set as denied and sent to Riskified. Additional data saved in database (paymentQuote table). 3D Secure verification level - failed.';
 
         //saves 3D Secure Response data in quotePayment table (additional data)
         $this->updateQuotePaymentDetailsInDb($quoteId, $params);
 
-        $quoteFactory = $this->quoteFactory;
         //Riskified defined order as fraud - order data is send to Riskified
         $this->sendDeniedOrderToRiskified($quote);
         $this->logger->log($message);
