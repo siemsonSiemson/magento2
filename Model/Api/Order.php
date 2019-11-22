@@ -103,9 +103,7 @@ class Order
         $this->queueFactory = $queueFactory;
         $this->orderRepository = $orderRepository;
         $this->searchCriteriaBuilder = $searchCriteriaBuilder;
-
         $this->_orderHelper->setCheckoutSession($checkoutSession);
-
         $this->_api->initSdk();
     }
 
@@ -263,9 +261,8 @@ class Order
             'fulfillment_status' => $model->getStatus(),
             'vendor_id' => $model->getStoreId(),
             'vendor_name' => $model->getStoreName(),
-            'cart_token' => $model->getQuoteId()
+            'cart_token' => $model->getQuoteId(),
         );
-
 
         if ($this->_orderHelper->isAdmin()) {
             unset($order_array['browser_ip']);
@@ -488,23 +485,27 @@ class Order
             'vendor_name' => $model->getStoreName(),
 //            'cart_token' => $this->session->getSessionId()
         ];
-//        if ($this->_orderHelper->getCustomerSession()->isLoggedIn()) {
+
+        if ($this->_orderHelper->getCustomerSession()->isLoggedIn()) {
             unset($order_array['browser_ip']);
             unset($order_array['cart_token']);
-//        }
+        }
+
         $payload = array_filter($order_array, 'strlen');
         $order = new Model\Checkout($payload);
         $order->customer = $this->_orderHelper->getCustomer();
         $order->shipping_address = $this->_orderHelper->getShippingAddress();
-        $order->billing_address = $this->_orderHelper->getBillingAddress();
+//        $order->billing_address = $this->_orderHelper->getBillingAddress();
         $order->payment_details = $this->_orderHelper->getPaymentDetails();
         $order->line_items = $this->_orderHelper->getLineItems();
         $order->shipping_lines = $this->_orderHelper->getShippingLines();
-//        $order->auth_type = 'string optional';
-//        $order->exemption_method = 'string optional';
         if (!$this->_backendAuthSession->isLoggedIn()) {
             $order->client_details = $this->_orderHelper->getClientDetails();
         }
+
         return $order;
     }
 }
+
+
+

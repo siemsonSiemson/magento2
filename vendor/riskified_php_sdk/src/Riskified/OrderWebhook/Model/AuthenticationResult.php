@@ -13,27 +13,19 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-
 /**
- * Class PaymentDetails
- * data model of payment (credit card) details
+ * Class AuthenticationResult
+ * data model of Result of Authentication via 3DS
  * @package Riskified\OrderWebhook\Model
  */
-class PaymentDetails extends AbstractModel {
-
+class AuthenticationResult extends AbstractModel
+{
     protected $_fields = array(
-        'credit_card_bin' => 'string',
-        'avs_result_code' => 'string /^.+$/i',
-        'cvv_result_code' => 'string /^.+$/i',
-        'credit_card_number' => 'string',
-        'credit_card_company' => 'string',
-
-        'payer_email' => 'string optional',
-        'payer_status' => 'string optional',
-        'payer_address_status' => 'string optional',
-        'protection_eligibility' => 'string optional',
-        'payment_status' => 'string optional',
-        'pending_reason' => 'string optional',
-        'authorization_id' => 'string optional',
+        'created_at' => 'date optional',
+        'eci' => 'string /^(:?05|06|07)$/',
+        'cavv' => 'string optional',
+        'trans_status' => 'string /^(:?Y|N|U|A|C|D|R|I)$/ optional',
+        'trans_status_reason' => 'string /^(:?01|02|03|04|05|06|07|08|09|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|80|99)$/ optional',
+        'liability_shift' => 'boolean optional'
     );
 }

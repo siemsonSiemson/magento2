@@ -3,6 +3,7 @@ namespace Riskified\Decider\Controller\Order;
 
 use Riskified\Decider\Model\Api\Request\Advice as AdviceRequest;
 use Riskified\Decider\Model\Api\Builder\Advice as AdviceBuilder;
+use Magento\Framework\App\Config\ScopeConfigInterface;
 use Riskified\Decider\Model\Api\Log as Logger;
 use \Magento\Quote\Model\QuoteFactory;
 use http\Exception\RuntimeException;
@@ -12,6 +13,11 @@ use \Magento\Framework\Registry;
 
 class Deny extends \Magento\Framework\App\Action\Action
 {
+    const XML_ADVISE_ENABLED = 'riskified/riskified_advise_process/enabled';
+    /**
+     * @var ScopeConfigInterface
+     */
+    private $scopeConfig;
     /**
      * @var Registry
      */
@@ -60,6 +66,7 @@ class Deny extends \Magento\Framework\App\Action\Action
      * @param \Magento\Framework\App\Action\Context $context
      * @param \Magento\Framework\App\Request\Http $request
      * @param \Magento\Checkout\Model\Session $session
+     * @param ScopeConfigInterface $scopeConfig
      * @param QuoteFactory $quoteFactory
      * @param AdviceBuilder $adviceBuilder
      * @param AdviceRequest $adviceRequest
@@ -73,6 +80,7 @@ class Deny extends \Magento\Framework\App\Action\Action
         \Magento\Framework\App\Action\Context $context,
         \Magento\Framework\App\Request\Http $request,
         \Magento\Checkout\Model\Session $session,
+        ScopeConfigInterface $scopeConfig,
         QuoteFactory $quoteFactory,
         AdviceBuilder $adviceBuilder,
         AdviceRequest $adviceRequest,
@@ -85,6 +93,7 @@ class Deny extends \Magento\Framework\App\Action\Action
         $this->adviceBuilder = $adviceBuilder;
         $this->adviceRequest = $adviceRequest;
         $this->quoteFactory = $quoteFactory;
+        $this->scopeConfig = $scopeConfig;
         $this->registry = $registry;
         $this->request = $request;
         $this->session = $session;
@@ -104,17 +113,27 @@ class Deny extends \Magento\Framework\App\Action\Action
      */
     public function execute()
     {
+        $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
+        $adviseEnabled = $this->scopeConfig->getValue(self::XML_ADVISE_ENABLED, $storeScope);
+        //check whether Riskified Advise is enabled in admin settings
+        if($adviseEnabled === 1){
+            return  $this->resultJsonFactory->create()->setData(['advice_status' => 'disabled']);
+        }
         $params = $this->request->getParams();
         $quoteId = $this->getQuoteId($params['quote_id']);
-        $quote = $this->registry->registry($quoteId);
-        $message = 'Quote ' . $quoteId . ' is set as denied and sent to Riskified. Additional data saved in database (paymentQuote table). 3D Secure verification level - failed.';
-
-        //saves 3D Secure Response data in quotePayment table (additional data)
-        $this->updateQuotePaymentDetailsInDb($quoteId, $params);
-
-        //Riskified defined order as fraud - order data is send to Riskified
-        $this->sendDeniedOrderToRiskified($quote);
-        $this->logger->log($message);
+        $quoteFactory = $this->quoteFactory;
+        $quote = $quoteFactory->create()->load($quoteId);
+        if(!is_null($quote)){
+            $message = 'Quote ' . $quoteId . ' is set as denied and sent to Riskified. Additional data saved in database (paymentQuote table). 3D Secure verification level - failed.';
+            //saves 3D Secure Response data in quotePayment table (additional data)
+            $this->updateQuotePaymentDetailsInDb($quoteId, $params);
+            //Riskified defined order as fraud - order data is send to Riskified
+            $this->sendDeniedOrderToRiskified($params, $quote);
+            $this->logger->log($message);
+        }else{
+            $message = 'Quote ' . $quoteId . ' cannot be found - cannot send fraud try to Riskified.';
+            $this->logger->log($message);
+        }
 
         return  $this->resultJsonFactory->create()->setData(['message' => $message]);
     }
@@ -155,11 +174,11 @@ class Deny extends \Magento\Framework\App\Action\Action
     /**
      * Sends Denied Quote to Riskified Api
      */
-    protected function sendDeniedOrderToRiskified($quote)
+    protected function sendDeniedOrderToRiskified($params, $quote)
     {
         $this->_eventManager->dispatch(
             'riskified_decider_deny_order_cause_riskified_fraud_or_thredesecure_fail',
-            ['postPayload' => $this->getRequest()->getParams(), 'quote' => $quote]
+            ['postPayload' => $params, 'quote' => $quote]
         );
     }
 

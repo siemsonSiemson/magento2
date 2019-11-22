@@ -2,13 +2,16 @@
 
 namespace Riskified\Decider\Model\Api\Order;
 
+use Riskified\Decider\Model\Api\Config as ApiConfig;
 use Riskified\OrderWebhook\Model;
+use Riskified\OrderWebhook\Model\AuthenticationResult;
+use Riskified\OrderWebhook\Model\AuthenticationType;
 use Magento\Catalog\Api\CategoryRepositoryInterface;
+use Magento\Customer\Model\Session\Proxy;
 use Magento\Framework\App\State;
 use Magento\Framework\Locale\ResolverInterface;
 use Magento\Framework\HTTP\Header;
 use Magento\Framework\Registry;
-use Riskified\Decider\Model\Api\Config as ApiConfig;
 use Magento\Framework\Logger\Monolog;
 use Magento\Framework\Message\ManagerInterface;
 use Magento\Customer\Model\Customer;
@@ -18,6 +21,10 @@ use Magento\Store\Model\StoreManagerInterface;
 class Helper
 {
     private $_order;
+    /**
+     * @var Proxy
+     */
+    private $_customerSession;
 
     /**
      * @var Log
@@ -90,7 +97,6 @@ class Helper
 
     /**
      * Helper constructor.
-     *
      * @param Monolog $logger
      * @param ApiConfig $apiConfig
      * @param Log $apiLogger
@@ -104,6 +110,7 @@ class Helper
      * @param ResolverInterface $localeResolver
      * @param Header $httpHeader
      * @param Registry $registry
+     * @param Session $customerSession
      */
     public function __construct(
         Monolog $logger,
@@ -118,9 +125,11 @@ class Helper
         State $state,
         ResolverInterface $localeResolver,
         Header $httpHeader,
-        Registry $registry
+        Registry $registry,
+        Proxy $customerSession
     ) {
         $this->_logger = $logger;
+        $this->_customerSession = $customerSession;
         $this->_messageManager = $messageManager;
         $this->_apiConfig = $apiConfig;
         $this->_apiLogger = $apiLogger;
@@ -405,7 +414,6 @@ class Helper
         }
 
         $this->preparePaymentData($payment, $paymentData);
-
         if (isset($paymentProcessor)
             && $paymentProcessor instanceof \Riskified\Decider\Model\Api\Order\PaymentProcessor\Paypal
         ) {
@@ -416,7 +424,7 @@ class Helper
                 'payer_address_status' => $paymentData['payer_address_status'],
                 'protection_eligibility' => $paymentData['protection_eligibility'],
                 'payment_status' => $paymentData['payment_status'],
-                'pending_reason' => $paymentData['pending_reason']
+                'pending_reason' => $paymentData['pending_reason'],
             ), 'strlen'));
         }
 
@@ -426,7 +434,15 @@ class Helper
             'cvv_result_code' => $paymentData['cvv_result_code'],
             'credit_card_number' => $paymentData['credit_card_number'],
             'credit_card_company' => $paymentData['credit_card_company'],
-            'credit_card_bin' => $paymentData['credit_card_bin']
+            'credit_card_bin' => $paymentData['credit_card_bin'],
+//            'authentication_type' =>  new Model\AuthenticationType(array(
+//                'auth_type' => 'credit_card',
+//                'exemption_method' => 'string optional'
+//            )),
+//            'authentication_result' => new Model\AuthenticationResult(array(
+//                'created_at' => 'XXXX-XX-XX xx:xx:xx',
+//                'trans_status' => 'fraud',
+//            ))
         ), 'strlen'));
     }
 
@@ -595,5 +611,13 @@ class Helper
     public function isAdmin()
     {
         return $this->state->getAreaCode() === 'adminhtml';
+    }
+
+    /**
+     * @return Session
+     */
+    public function getCustomerSession()
+    {
+        return $this->_customerSession;
     }
 }

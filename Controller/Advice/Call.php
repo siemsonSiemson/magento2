@@ -3,6 +3,7 @@ namespace Riskified\Decider\Controller\Advice;
 
 use Riskified\Decider\Model\Api\Request\Advice as AdviceRequest;
 use Riskified\Decider\Model\Api\Builder\Advice as AdviceBuilder;
+use Magento\Framework\App\Config\ScopeConfigInterface;
 use Riskified\Decider\Model\Api\Log as Logger;
 use \Magento\Quote\Model\QuoteFactory;
 use http\Exception\RuntimeException;
@@ -11,6 +12,11 @@ use \Magento\Framework\Registry;
 
 class Call extends \Magento\Framework\App\Action\Action
 {
+    const XML_ADVISE_ENABLED = 'riskified/riskified_advise_process/enabled';
+    /**
+     * @var ScopeConfigInterface
+     */
+    private $scopeConfig;
     /**
      * @var Registry
      */
@@ -59,6 +65,7 @@ class Call extends \Magento\Framework\App\Action\Action
      * @param \Magento\Framework\App\Action\Context $context
      * @param \Magento\Framework\App\Request\Http $request
      * @param \Magento\Checkout\Model\Session $session
+     * @param ScopeConfigInterface $scopeConfig
      * @param AdviceRequest $adviceRequest
      * @param AdviceBuilder $adviceBuilder
      * @param QuoteFactory $quoteFactory
@@ -72,6 +79,7 @@ class Call extends \Magento\Framework\App\Action\Action
         \Magento\Framework\App\Action\Context $context,
         \Magento\Framework\App\Request\Http $request,
         \Magento\Checkout\Model\Session $session,
+        ScopeConfigInterface $scopeConfig,
         AdviceRequest $adviceRequest,
         AdviceBuilder $adviceBuilder,
         QuoteFactory $quoteFactory,
@@ -84,6 +92,7 @@ class Call extends \Magento\Framework\App\Action\Action
         $this->adviceBuilder = $adviceBuilder;
         $this->adviceRequest = $adviceRequest;
         $this->quoteFactory = $quoteFactory;
+        $this->scopeConfig = $scopeConfig;
         $this->registry = $registry;
         $this->request = $request;
         $this->session = $session;
@@ -104,6 +113,13 @@ class Call extends \Magento\Framework\App\Action\Action
      */
     public function execute()
     {
+        $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
+        $adviseEnabled = $this->scopeConfig->getValue(self::XML_ADVISE_ENABLED, $storeScope);
+        //check whether Riskified Advise is enabled in admin settings
+        if($adviseEnabled === 1){
+            return  $this->resultJsonFactory->create()->setData(['advice_status' => 'disabled']);
+        }
+
         $params = $this->request->getParams();
         $quoteId = $this->getQuoteId($params['quote_id']);
         $quoteFactory = $this->quoteFactory;
@@ -125,7 +141,6 @@ class Call extends \Magento\Framework\App\Action\Action
 
         //use this status while backend order validation
         $this->session->setAdviceCallStatus($status);
-
         if($status != "captured"){
             $adviceCallStatus = 3;
             $logMessage = 'Quote ' . $quoteId . ' is set as denied and sent to Riskified. Additional data saved in database (paymentQuote table). Riskified verification (advise call) level.';

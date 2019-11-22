@@ -61,8 +61,7 @@ class QuotePaymentFailed implements ObserverInterface
     {
         $quote = $observer->getData('quote');
         $quoteFactory = $this->orderFactory->create();
-        $order = $quoteFactory->loadByAttribute('increment_id', $quote->getReservedOrderId());
-
+        $order = $quoteFactory->loadByAttribute('quote_id', $quote->getEntityId());
         $this->apiOrderLayer->post(
             $order,
             Api::ACTION_CHECKOUT_DENIED

@@ -13,27 +13,15 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-
 /**
- * Class PaymentDetails
- * data model of payment (credit card) details
+ * Class AuthenticationType
+ * data model Type of Authentication for PSD2 compliance
  * @package Riskified\OrderWebhook\Model
  */
-class PaymentDetails extends AbstractModel {
-
+class AuthenticationType extends AbstractModel
+{
     protected $_fields = array(
-        'credit_card_bin' => 'string',
-        'avs_result_code' => 'string /^.+$/i',
-        'cvv_result_code' => 'string /^.+$/i',
-        'credit_card_number' => 'string',
-        'credit_card_company' => 'string',
-
-        'payer_email' => 'string optional',
-        'payer_status' => 'string optional',
-        'payer_address_status' => 'string optional',
-        'protection_eligibility' => 'string optional',
-        'payment_status' => 'string optional',
-        'pending_reason' => 'string optional',
-        'authorization_id' => 'string optional',
+        'auth_type' => 'string optional',
+        'exemption_method' => 'string optional'
     );
 }

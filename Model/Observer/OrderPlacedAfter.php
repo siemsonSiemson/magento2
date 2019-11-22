@@ -2,14 +2,17 @@
 
 namespace Riskified\Decider\Model\Observer;
 
-use Magento\Framework\Event\ObserverInterface;
 use Riskified\Decider\Model\Api\Builder\Advice as AdviceBuilder;
 use Riskified\Decider\Model\Logger\Order as OrderLogger;
+use Magento\Framework\App\Config\ScopeConfigInterface;
 use Riskified\Decider\Model\Api\Order as OrderApi;
+use Magento\Framework\Event\ObserverInterface;
 use Riskified\Decider\Model\Api\Api;
 
 class OrderPlacedAfter implements ObserverInterface
 {
+    const XML_ADVISE_ENABLED = 'riskified/riskified_advise_process/enabled';
+
     /**
      * @var AdviceBuilder
      */
@@ -30,6 +33,11 @@ class OrderPlacedAfter implements ObserverInterface
     private $api;
 
     /**
+     * @var ScopeConfigInterface
+     */
+    private $scopeConfig;
+
+    /**
      * OrderPlacedAfter constructor.
      * @param AdviceBuilder $adviceBuilder
      * @param OrderLogger $logger
@@ -37,16 +45,17 @@ class OrderPlacedAfter implements ObserverInterface
      * @param Api $api
      */
     public function __construct(
+        ScopeConfigInterface $scopeConfig,
         AdviceBuilder $adviceBuilder,
         OrderLogger $logger,
         OrderApi $orderApi,
         Api $api
     ) {
         $this->adviceBuilder = $adviceBuilder;
+        $this->scopeConfig = $scopeConfig;
         $this->orderApi = $orderApi;
         $this->logger = $logger;
         $this->api = $api;
-
         $this->api->initSdk();
     }
 
@@ -57,9 +66,17 @@ class OrderPlacedAfter implements ObserverInterface
     {
         $order = $observer->getOrder();
         $quote = $observer->getQuote();
+        $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
+        $adviseEnabled = $this->scopeConfig->getValue(self::XML_ADVISE_ENABLED, $storeScope);
 
-        //check order whether is fraud and adjust event action.
-        $isFraud = $this->isOrderFraud($quote);
+        //check whether Riskified Advise is enabled in admin settings
+        if($adviseEnabled === 1){
+            //check order whether is fraud and adjust event action.
+            $isFraud = $this->isOrderFraud($quote);
+        }else{
+            $isFraud = false;
+        }
+
         if($isFraud === true){
             $action = Api::ACTION_CHECKOUT_DENIED;
         }else{
@@ -72,12 +89,12 @@ class OrderPlacedAfter implements ObserverInterface
 
         if ($order->dataHasChangedFor('state')) {
             try {
-                $this->_orderApi->post($order, $action);
+                $this->orderApi->post($order, $action);
             } catch (\Exception $e) {
-                $this->_logger->critical($e);
+                $this->logger->critical($e);
             }
         } else {
-            $this->_logger->debug(__("No data found"));
+            $this->logger->debug(__("No data found"));
         }
     }
 
@@ -88,21 +105,20 @@ class OrderPlacedAfter implements ObserverInterface
      */
     private function isOrderFraud($quote)
     {
-        $this->logger->log('First Riskified fraud checking for Quote: ' . $quote->getEntityId() . '. Process withing OrderPlacedAfter observer.');
+        $this->logger->addInfo('First Riskified fraud checking for Quote: ' . $quote->getEntityId() . '. Process withing OrderPlacedAfter observer.');
         $this->adviceBuilder->build(['quote_id' => $quote->getEntityId()]);
         $callResponse = $this->adviceBuilder->request();
         $status = $callResponse->checkout->status;
         $authType = $callResponse->checkout->authentication_type->auth_type;
-
         if($status != "captured"){
-            $this->logger->log('Quote: ' . $quote->getEntityId() . ' is fraud - verified by Riskified.');
+            $this->logger->addInfo('Quote: ' . $quote->getEntityId() . ' is fraud - verified by Riskified.');
             $isFraud = true;
-            $paymentDetails = array('auth_type' => $authType, 'status' => $status);
+            $paymentDetails = array('is_fraud' => 'true', 'auth_type' => $authType, 'status' => $status);
             //saves fraud incident details in quote Payment (additional data)
-            $this->updateQuotePaymentDetailsInDb($quote->getEntityId(), $paymentDetails);
+            $this->updateQuotePaymentDetailsInDb($quote, $paymentDetails);
         }else{
             $isFraud = false;
-            $this->logger->log('Quote: ' . $quote->getEntityId() . ' is not a fraud - verified by Riskified.');
+            $this->logger->addInfo('Quote: ' . $quote->getEntityId() . ' is not a fraud - verified by Riskified.');
         }
 
         return $isFraud;
@@ -114,11 +130,10 @@ class OrderPlacedAfter implements ObserverInterface
      * @param $paymentDetails
      * @throws \Exception
      */
-    protected function updateQuotePaymentDetailsInDb($quoteId, $paymentDetails)
+    protected function updateQuotePaymentDetailsInDb($quote, $paymentDetails)
     {
-        $quote = $this->registry->registry($quoteId);
         if(isset($quote)){
-            $this->logger->log('Quote ' . $quoteId . ' found - saving fraud details as additional quotePayment data in db.');
+            $this->logger->addInfo('Quote ' . $quote->getEntityId() . ' found - saving fraud details as additional quotePayment data in db.');
             $quotePayment = $quote->getPayment();
             $currentDate = date('Y-m-d H:i:s', time());
             $additionalData = $quotePayment->getAdditionalData();
@@ -134,10 +149,10 @@ class OrderPlacedAfter implements ObserverInterface
                 $quotePayment->setAdditionalData($additionalData);
                 $quotePayment->save();
             }catch(RuntimeException $e){
-                $this->logger->log('Cannot save quotePayment additional data ' . $e->getMessage());
+                $this->logger->addInfo('Cannot save quotePayment additional data ' . $e->getMessage());
             }
         }else{
-            $this->logger->log('Quote ' . $quoteId . ' not found to save additional quotePayment data in db.');
+            $this->logger->addInfo('Quote ' . $quote->getEntityId() . ' not found to save additional quotePayment data in db.');
         }
     }
 }

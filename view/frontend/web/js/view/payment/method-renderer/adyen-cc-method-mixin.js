@@ -56,40 +56,47 @@ define(
                         threeDS2Status = status.advice_status;
                     });
 
-                    if (threeDS2Status == 3) {
-                        fullScreenLoader.stopLoader();
-                        self.isPlaceOrderActionAllowed(false);
-                        alert.showError("The order was declined.");
-                    } else if(!!response.threeDS2) {
-                        // render 3D Secure iframe component
-                        self.renderThreeDS2Component(response.type, response.token);
-                    } else {
-                        //when 3Dsecure not enabled in admin but Riskifed requires it.
-                        if(threeDS2Status !== true){
-                            //build 3D Secure
-                            // var threeDS2Node = document.getElementById('threeDS2Container');
-                            // self.threeDS2IdentifyComponent.mount(threeDS2Node);
+                    //when Riskified Advise is disabled in admin
+                    if(threeDS2Status == "disabled"){
+                        self.basicThreeDValidators();
+                        quote.setThreeDSecureStatus(quoteThreeDSecureState + 1);
+                    }else{
+                        if (threeDS2Status == 3) {
+                            fullScreenLoader.stopLoader();
+                            self.isPlaceOrderActionAllowed(false);
+                            alert.showError("The order was declined.");
+                        } else if(!!response.threeDS2) {
                             // render 3D Secure iframe component
-                            // self.renderThreeDS2Component(response.type, response.token);
-                            alert('chosen card 3D additional support, use:  3714 4963 5398 431');
-                        }else{
-                            window.location.replace(url.build(
-                                window.checkoutConfig.payment[quote.paymentMethod().method].redirectUrl)
-                            );
+                            self.renderThreeDS2Component(response.type, response.token);
+                        } else {
+                            //when 3Dsecure not enabled in admin but Riskifed requires it.
+                            if(threeDS2Status !== true){
+                                alert('Adyen doesnt need 3D Secure but Riskified does.');
+                            }else{
+                                window.location.replace(url.build(
+                                    window.checkoutConfig.payment[quote.paymentMethod().method].redirectUrl)
+                                );
+                            }
                         }
+                        //change quote 3D Secure state
+                        quote.setThreeDSecureStatus(quoteThreeDSecureState + 1);
                     }
-                    //change quote 3D Secure state
-                    quote.setThreeDSecureStatus(quoteThreeDSecureState + 1);
                 }else{
-                    //old way of 3D Secure validation (without Riskified)
-                    if (!!response.threeDS2) {
-                        // render component
-                        self.renderThreeDS2Component(response.type, response.token);
-                    } else {
-                        window.location.replace(url.build(
-                            window.checkoutConfig.payment[quote.paymentMethod().method].redirectUrl)
-                        );
-                    }
+                    self.basicThreeDValidators();
+                }
+            },
+            /**
+             * Build-in Adyen 3D Secure Validator logic. No Riskified Advise logic included.
+             */
+            basicThreeDValidators: function () {
+                //old way of 3D Secure validation (without Riskified)
+                if (!!response.threeDS2) {
+                    // render component
+                    self.renderThreeDS2Component(response.type, response.token);
+                } else {
+                    window.location.replace(url.build(
+                        window.checkoutConfig.payment[quote.paymentMethod().method].redirectUrl)
+                    );
                 }
             },
             /**
