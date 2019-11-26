@@ -13,6 +13,8 @@ class OrderPlacedAfter implements ObserverInterface
 {
     const XML_ADVISE_ENABLED = 'riskified/riskified_advise_process/enabled';
 
+    private $paymentMethods = ['adyen_cc', 'braintree'];
+
     /**
      * @var AdviceBuilder
      */
@@ -66,13 +68,21 @@ class OrderPlacedAfter implements ObserverInterface
     {
         $order = $observer->getOrder();
         $quote = $observer->getQuote();
+        $quotePayment = $quote->getPayment();
+        $paymnetMethod = $quotePayment->getMethod();
+
         $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
         $adviseEnabled = $this->scopeConfig->getValue(self::XML_ADVISE_ENABLED, $storeScope);
 
         //check whether Riskified Advise is enabled in admin settings
         if($adviseEnabled === 1){
-            //check order whether is fraud and adjust event action.
-            $isFraud = $this->isOrderFraud($quote);
+            if(in_array($paymnetMethod, $this->paymentMethods)){
+                //check order whether is fraud and adjust event action.
+                $isFraud = $this->isOrderFraud($quote);
+            }else{
+                //when advise is enabled(admin) but payment method doesn't need 3DSec
+                $isFraud = false;
+            }
         }else{
             $isFraud = false;
         }

@@ -35,5 +35,12 @@ class PaymentDetails extends AbstractModel {
         'payment_status' => 'string optional',
         'pending_reason' => 'string optional',
         'authorization_id' => 'string optional',
+
+        '_type' => 'string /^(:?credit_card|paypal)$/ optional',
+        'id' => 'number optional',
+        'gateway' => 'string optional',
+        'acquirer_bin' => 'string optional',
+        'mid' => 'string optional',
+        'authentication_result' => 'object \AuthenticationResult optional',
     );
 }

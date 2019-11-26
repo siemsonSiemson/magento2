@@ -15,12 +15,19 @@ use Magento\Framework\Registry;
 use Magento\Framework\Logger\Monolog;
 use Magento\Framework\Message\ManagerInterface;
 use Magento\Customer\Model\Customer;
+use Magento\Quote\Model\QuoteFactory;
 use Magento\Sales\Model\ResourceModel\Order\CollectionFactory as OrderCollectionFactory;
 use Magento\Store\Model\StoreManagerInterface;
 
 class Helper
 {
     private $_order;
+
+    /**
+     * @var QuoteFactory
+     */
+    private $_quoteFactory;
+
     /**
      * @var Proxy
      */
@@ -110,7 +117,8 @@ class Helper
      * @param ResolverInterface $localeResolver
      * @param Header $httpHeader
      * @param Registry $registry
-     * @param Session $customerSession
+     * @param Proxy $customerSession
+     * @param QuoteFactory $quoteFactory
      */
     public function __construct(
         Monolog $logger,
@@ -126,7 +134,8 @@ class Helper
         ResolverInterface $localeResolver,
         Header $httpHeader,
         Registry $registry,
-        Proxy $customerSession
+        Proxy $customerSession,
+        QuoteFactory $quoteFactory
     ) {
         $this->_logger = $logger;
         $this->_customerSession = $customerSession;
@@ -135,6 +144,7 @@ class Helper
         $this->_apiLogger = $apiLogger;
         $this->customer = $customer;
         $this->_orderFactory = $orderFactory;
+        $this->_quoteFactory = $quoteFactory;
         $this->_storeManager = $storeManager;
         $this->categoryRepository = $categoryRepository;
         $this->paymentProcessorFactory = $paymentProcessorFactory;
@@ -389,12 +399,27 @@ class Helper
     }
 
     /**
+     * @param $quoteId
+     * @return \Magento\Quote\Model\Quote
+     */
+    protected function getQuote($quoteId)
+    {
+
+        return $this->_quoteFactory->create()->load($quoteId);
+    }
+
+    /**
      * @return null|Model\PaymentDetails
      * @throws \Exception
      */
     public function getPaymentDetails()
     {
-        $payment = $this->getOrder()->getPayment();
+        $order = $this->getOrder();
+        $payment = $order->getPayment();
+        $quote = $this->getQuote($order->getQuoteId());
+        $quotePayment = $quote->getPayment();
+        $quotePaymentAdditionalData = $quotePayment->getAdditionalData();
+
         if (!$payment) {
             return null;
         }
@@ -403,6 +428,7 @@ class Helper
             $this->_apiLogger->payment($this->getOrder());
         }
         $paymentData = [];
+
         try {
             $paymentProcessor = $this->getPaymentProcessor($this->getOrder());
             $paymentData = $paymentProcessor->getDetails();
@@ -435,14 +461,20 @@ class Helper
             'credit_card_number' => $paymentData['credit_card_number'],
             'credit_card_company' => $paymentData['credit_card_company'],
             'credit_card_bin' => $paymentData['credit_card_bin'],
-//            'authentication_type' =>  new Model\AuthenticationType(array(
-//                'auth_type' => 'credit_card',
-//                'exemption_method' => 'string optional'
-//            )),
-//            'authentication_result' => new Model\AuthenticationResult(array(
-//                'created_at' => 'XXXX-XX-XX xx:xx:xx',
-//                'trans_status' => 'fraud',
-//            ))
+
+            '_type' => 'NEED MATCHING - can be omitted',
+            'id' => $order->getQuoteId(),
+            'gateway' => 'NEED MATCHING',
+            'acquirer_bin' => 'NEED MATCHING',
+            'mid' => 'NEED MATCHING',
+            'authentication_result' => new Model\AuthenticationResult([
+                'created_at' => date('Y-m-d H:i:s', time()),
+                'eci' => 'NEED MATCHING',
+                'cavv' => 'NEED MATCHING',
+                'trans_status' => 'NEED MATCHING',
+                'trans_status_reason' => 'NEED MATCHING',
+                'liability_shift' => 'NEED MATCHING',
+            ])
         ), 'strlen'));
     }
 

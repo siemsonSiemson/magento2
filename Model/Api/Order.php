@@ -3,10 +3,13 @@
 namespace Riskified\Decider\Model\Api;
 
 use Magento\Checkout\Model\Session;
+use Magento\Framework\App\Config\ScopeConfigInterface;
 use Riskified\OrderWebhook\Model;
 
 class Order
 {
+    const XML_ADVISE_BIN = 'riskified/riskified_advise_process/bin';
+
     /**
      * @var Api
      */
@@ -63,25 +66,32 @@ class Order
     private $searchCriteriaBuilder;
 
     /**
+     * @var ScopeConfigInterface
+     */
+    private $scopeConfig;
+
+    /**
      * Order constructor.
-     *
      * @param Api $api
-     * @param Order\Helper $orderHelper
      * @param Config $apiConfig
      * @param Order\Log $logger
+     * @param Order\Helper $orderHelper
+     * @param ScopeConfigInterface $scopeConfig
      * @param \Magento\Framework\App\Helper\Context $context
      * @param \Magento\Backend\Model\Auth\Session $backendAuthSession
      * @param \Magento\Framework\Message\ManagerInterface $messageManager
      * @param \Magento\Framework\Stdlib\DateTime\DateTime $date
      * @param \Riskified\Decider\Model\QueueFactory $queueFactory
      * @param \Magento\Sales\Api\OrderRepositoryInterface $orderRepository
+     * @param Session $checkoutSession
      * @param \Magento\Framework\Api\SearchCriteriaBuilder $searchCriteriaBuilder
      */
     public function __construct(
         Api $api,
-        Order\Helper $orderHelper,
         Config $apiConfig,
         Order\Log $logger,
+        Order\Helper $orderHelper,
+        ScopeConfigInterface $scopeConfig,
         \Magento\Framework\App\Helper\Context $context,
         \Magento\Backend\Model\Auth\Session $backendAuthSession,
         \Magento\Framework\Message\ManagerInterface $messageManager,
@@ -95,6 +105,7 @@ class Order
         $this->_orderHelper = $orderHelper;
         $this->_apiConfig = $apiConfig;
         $this->_context = $context;
+        $this->scopeConfig = $scopeConfig;
         $this->_eventManager = $context->getEventManager();
         $this->_backendAuthSession = $backendAuthSession;
         $this->_messageManager = $messageManager;
@@ -157,6 +168,8 @@ class Order
                     break;
                 case Api::ACTION_CHECKOUT_DENIED:
                     $checkoutForTransport = $this->loadQuote($order);
+                    print_r($checkoutForTransport);
+                    die;
                     $response = $transport->deniedCheckout($checkoutForTransport);
                     break;
             }
@@ -461,6 +474,8 @@ class Order
         if ($model->getPayment()) {
             $gateway = $model->getPayment()->getMethod();
         }
+        $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
+        $bin = $this->scopeConfig->getValue(self::XML_ADVISE_BIN, $storeScope);
         $order_array = [
             'id' => (int) $model->getQuoteId(),
             'name' => $model->getIncrementId(),
@@ -483,6 +498,11 @@ class Order
             'fulfillment_status' => $model->getStatus(),
             'vendor_id' => $model->getStoreId(),
             'vendor_name' => $model->getStoreName(),
+            'authentication_type' => new Model\AuthenticationType([
+                'auth_type' => 'fraud',
+                'exemption_method' => '3ds'
+            ]),
+            'bin' => $bin
 //            'cart_token' => $this->session->getSessionId()
         ];
 
