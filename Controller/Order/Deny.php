@@ -116,19 +116,20 @@ class Deny extends \Magento\Framework\App\Action\Action
         $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
         $adviseEnabled = $this->scopeConfig->getValue(self::XML_ADVISE_ENABLED, $storeScope);
         //check whether Riskified Advise is enabled in admin settings
-        if($adviseEnabled === 1){
+        if($adviseEnabled == 0){
             return  $this->resultJsonFactory->create()->setData(['advice_status' => 'disabled']);
         }
-        $params = $this->request->getParams();
-        $quoteId = $this->getQuoteId($params['quote_id']);
+        $payload = $this->request->getParams();
+        $quoteId = $this->getQuoteId($payload['quote_id']);
         $quoteFactory = $this->quoteFactory;
         $quote = $quoteFactory->create()->load($quoteId);
         if(!is_null($quote)){
             $message = 'Quote ' . $quoteId . ' is set as denied and sent to Riskified. Additional data saved in database (paymentQuote table). 3D Secure verification level - failed.';
             //saves 3D Secure Response data in quotePayment table (additional data)
-            $this->updateQuotePaymentDetailsInDb($quoteId, $params);
+            $payload['date'] = $currentDate = date('Y-m-d H:i:s', time());
+            $this->updateQuotePaymentDetailsInDb($quote, $payload);
             //Riskified defined order as fraud - order data is send to Riskified
-            $this->sendDeniedOrderToRiskified($params, $quote);
+            $this->sendDeniedOrderToRiskified($payload, $quote);
             $this->logger->log($message);
         }else{
             $message = 'Quote ' . $quoteId . ' cannot be found - cannot send fraud try to Riskified.';
@@ -144,20 +145,18 @@ class Deny extends \Magento\Framework\App\Action\Action
      * @param $paymentDetails
      * @throws \Exception
      */
-    protected function updateQuotePaymentDetailsInDb($quoteId, $paymentDetails)
+    protected function updateQuotePaymentDetailsInDb($quote, $paymentDetails)
     {
-        $quote = $this->registry->registry($quoteId);
         if(isset($quote)){
-            $this->logger->log('Quote ' . $quoteId . ' found - saving Riskified Advise or 3D Secure Response as additional quotePayment data in db.');
+            $this->logger->log('Quote ' . $quote->getEntityId() . ' found - saving Riskified Advise or 3D Secure Response as additional quotePayment data in db.');
             $quotePayment = $quote->getPayment();
-            $currentDate = date('Y-m-d H:i:s', time());
             $additionalData = $quotePayment->getAdditionalData();
             //avoid overwriting quotePayment additional data
             if(is_array($additionalData)){
-                $additionalData[$currentDate] = $paymentDetails;
+                $additionalData['3d_secure'] = $paymentDetails;
                 $additionalData = json_encode($additionalData);
             }else{
-                $additionalData = [$currentDate =>$paymentDetails];
+                $additionalData = ['3d_secure' => $paymentDetails];
                 $additionalData = json_encode($additionalData);
             }
             try{
@@ -167,7 +166,7 @@ class Deny extends \Magento\Framework\App\Action\Action
                 $this->logger->log('Cannot save quotePayment additional data ' . $e->getMessage());
             }
         }else{
-            $this->logger->log('Quote ' . $quoteId . ' not found to save additional quotePayment data in db.');
+            $this->logger->log('Quote ' . $quote->getEntityId() . ' not found to save additional quotePayment data in db.');
         }
     }
 

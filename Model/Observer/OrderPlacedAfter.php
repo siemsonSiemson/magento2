@@ -69,14 +69,13 @@ class OrderPlacedAfter implements ObserverInterface
         $order = $observer->getOrder();
         $quote = $observer->getQuote();
         $quotePayment = $quote->getPayment();
-        $paymnetMethod = $quotePayment->getMethod();
+        $paymetMethod = $quotePayment->getMethod();
 
         $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
         $adviseEnabled = $this->scopeConfig->getValue(self::XML_ADVISE_ENABLED, $storeScope);
-
         //check whether Riskified Advise is enabled in admin settings
-        if($adviseEnabled === 1){
-            if(in_array($paymnetMethod, $this->paymentMethods)){
+        if($adviseEnabled == 1){
+            if(in_array($paymetMethod, $this->paymentMethods) == 1){
                 //check order whether is fraud and adjust event action.
                 $isFraud = $this->isOrderFraud($quote);
             }else{
@@ -86,7 +85,7 @@ class OrderPlacedAfter implements ObserverInterface
         }else{
             $isFraud = false;
         }
-
+        //send order to proper Riskified endpoint
         if($isFraud === true){
             $action = Api::ACTION_CHECKOUT_DENIED;
         }else{
@@ -123,7 +122,12 @@ class OrderPlacedAfter implements ObserverInterface
         if($status != "captured"){
             $this->logger->addInfo('Quote: ' . $quote->getEntityId() . ' is fraud - verified by Riskified.');
             $isFraud = true;
-            $paymentDetails = array('is_fraud' => 'true', 'auth_type' => $authType, 'status' => $status);
+            $paymentDetails = array(
+                'date' => $currentDate = date('Y-m-d H:i:s', time()),
+                'is_fraud' => 'true',
+                'auth_type' => $authType,
+                'status' => $status
+            );
             //saves fraud incident details in quote Payment (additional data)
             $this->updateQuotePaymentDetailsInDb($quote, $paymentDetails);
         }else{
@@ -145,14 +149,13 @@ class OrderPlacedAfter implements ObserverInterface
         if(isset($quote)){
             $this->logger->addInfo('Quote ' . $quote->getEntityId() . ' found - saving fraud details as additional quotePayment data in db.');
             $quotePayment = $quote->getPayment();
-            $currentDate = date('Y-m-d H:i:s', time());
             $additionalData = $quotePayment->getAdditionalData();
             //avoid overwriting quotePayment additional data
             if(is_array($additionalData)){
-                $additionalData[$currentDate] = $paymentDetails;
+                $additionalData['fraud'] = $paymentDetails;
                 $additionalData = json_encode($additionalData);
             }else{
-                $additionalData = [$currentDate =>$paymentDetails];
+                $additionalData = ['fraud' => $paymentDetails];
                 $additionalData = json_encode($additionalData);
             }
             try{

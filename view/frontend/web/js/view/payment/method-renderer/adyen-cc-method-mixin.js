@@ -58,7 +58,7 @@ define(
 
                     //when Riskified Advise is disabled in admin
                     if(threeDS2Status == "disabled"){
-                        self.basicThreeDValidators();
+                        self.basicThreeDValidators(response);
                         quote.setThreeDSecureStatus(quoteThreeDSecureState + 1);
                     }else{
                         if (threeDS2Status == 3) {
@@ -82,17 +82,17 @@ define(
                         quote.setThreeDSecureStatus(quoteThreeDSecureState + 1);
                     }
                 }else{
-                    self.basicThreeDValidators();
+                    self.basicThreeDValidators(response);
                 }
             },
             /**
              * Build-in Adyen 3D Secure Validator logic. No Riskified Advise logic included.
              */
-            basicThreeDValidators: function () {
+            basicThreeDValidators: function (response) {
                 //old way of 3D Secure validation (without Riskified)
                 if (!!response.threeDS2) {
                     // render component
-                    self.renderThreeDS2Component(response.type, response.token);
+                    this.renderThreeDS2Component(response.type, response.token);
                 } else {
                     window.location.replace(url.build(
                         window.checkoutConfig.payment[quote.paymentMethod().method].redirectUrl)
@@ -164,6 +164,7 @@ define(
                                             mode: 'adyen-cc-3DS-deny',
                                             quote_id: quote.getQuoteId(),
                                             reason: responseData.message,
+                                            front_action: 'wrong password',
                                         };
                                     $.ajax({
                                         method: "POST",

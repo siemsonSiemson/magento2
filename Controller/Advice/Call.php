@@ -116,7 +116,7 @@ class Call extends \Magento\Framework\App\Action\Action
         $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
         $adviseEnabled = $this->scopeConfig->getValue(self::XML_ADVISE_ENABLED, $storeScope);
         //check whether Riskified Advise is enabled in admin settings
-        if($adviseEnabled === 1){
+        if($adviseEnabled == 0){
             return  $this->resultJsonFactory->create()->setData(['advice_status' => 'disabled']);
         }
 
@@ -134,7 +134,11 @@ class Call extends \Magento\Framework\App\Action\Action
         $status = $callResponse->checkout->status;
         $authType = $callResponse->checkout->authentication_type->auth_type;
         $this->logger->log('Riskified Advise Call Response status: ' . $status);
-        $paymentDetails = array('auth_type' => $authType, 'status' => $status);
+        $paymentDetails = array(
+            'date' => $currentDate = date('Y-m-d H:i:s', time()),
+            'auth_type' => $authType,
+            'status' => $status
+        );
 
         //saves advise call returned data in quote Payment (additional data)
         $this->updateQuotePaymentDetailsInDb($quoteId, $paymentDetails);
@@ -172,14 +176,13 @@ class Call extends \Magento\Framework\App\Action\Action
         if (isset($quote)) {
             $this->logger->log('Quote ' . $quoteId . ' found - saving Riskified Advise or 3D Secure Response as additional quotePayment data in db.');
             $quotePayment = $quote->getPayment();
-            $currentDate = date('Y-m-d H:i:s', time());
             $additionalData = $quotePayment->getAdditionalData();
             //avoid overwriting quotePayment additional data
             if (is_array($additionalData)) {
-                $additionalData[$currentDate] = $paymentDetails;
+                $additionalData[$paymentDetails['auth_type']] = $paymentDetails;
                 $additionalData = json_encode($additionalData);
             } else {
-                $additionalData = [$currentDate => $paymentDetails];
+                $additionalData = [$paymentDetails['auth_type'] => $paymentDetails];
                 $additionalData = json_encode($additionalData);
             }
             try {

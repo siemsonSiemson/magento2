@@ -168,8 +168,6 @@ class Order
                     break;
                 case Api::ACTION_CHECKOUT_DENIED:
                     $checkoutForTransport = $this->loadQuote($order);
-                    print_r($checkoutForTransport);
-                    die;
                     $response = $transport->deniedCheckout($checkoutForTransport);
                     break;
             }
