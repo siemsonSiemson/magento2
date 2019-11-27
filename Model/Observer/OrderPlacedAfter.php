@@ -13,7 +13,7 @@ class OrderPlacedAfter implements ObserverInterface
 {
     const XML_ADVISE_ENABLED = 'riskified/riskified_advise_process/enabled';
 
-    private $paymentMethods = ['adyen_cc', 'braintree'];
+    private $paymentMethods = ['adyen_cc'];
 
     /**
      * @var AdviceBuilder
@@ -71,10 +71,11 @@ class OrderPlacedAfter implements ObserverInterface
         $quotePayment = $quote->getPayment();
         $paymetMethod = $quotePayment->getMethod();
 
-        $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
-        $adviseEnabled = $this->scopeConfig->getValue(self::XML_ADVISE_ENABLED, $storeScope);
-        //check whether Riskified Advise is enabled in admin settings
-        if($adviseEnabled == 1){
+        //check current paymentMethode is included as valid to trigger 3DSecure here
+        if(in_array($paymetMethod, $this->paymentMethods) == 1){
+            $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
+            $adviseEnabled = $this->scopeConfig->getValue(self::XML_ADVISE_ENABLED, $storeScope);
+            //check whether Riskified Advise is enabled in admin settings
             if(in_array($paymetMethod, $this->paymentMethods) == 1){
                 //check order whether is fraud and adjust event action.
                 $isFraud = $this->isOrderFraud($quote);
@@ -85,6 +86,7 @@ class OrderPlacedAfter implements ObserverInterface
         }else{
             $isFraud = false;
         }
+
         //send order to proper Riskified endpoint
         if($isFraud === true){
             $action = Api::ACTION_CHECKOUT_DENIED;

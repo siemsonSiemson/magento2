@@ -4,11 +4,13 @@ namespace Riskified\Decider\Controller\Advice;
 use Riskified\Decider\Model\Api\Request\Advice as AdviceRequest;
 use Riskified\Decider\Model\Api\Builder\Advice as AdviceBuilder;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Riskified\Decider\Model\Api\Order as OrderApi;
 use Riskified\Decider\Model\Api\Log as Logger;
-use \Magento\Quote\Model\QuoteFactory;
+use Magento\Quote\Model\QuoteFactory;
+use Magento\Sales\Model\OrderFactory;
 use http\Exception\RuntimeException;
 use Riskified\Decider\Model\Api\Api;
-use \Magento\Framework\Registry;
+use Magento\Framework\Registry;
 
 class Call extends \Magento\Framework\App\Action\Action
 {
@@ -50,6 +52,14 @@ class Call extends \Magento\Framework\App\Action\Action
      */
     private $quoteFactory;
     /**
+     * @var OrderFactory
+     */
+    private $orderFactory;
+    /**
+     * @var OrderApi
+     */
+    private $apiOrderLayer;
+    /**
      * @var QuoteIdMaskFactory
      */
     private $quoteIdMaskFactory;
@@ -69,6 +79,8 @@ class Call extends \Magento\Framework\App\Action\Action
      * @param AdviceRequest $adviceRequest
      * @param AdviceBuilder $adviceBuilder
      * @param QuoteFactory $quoteFactory
+     * @param OrderFactory $orderFactory
+     * @param OrderApi $orderApi
      * @param Registry $registry
      * @param Logger $logger
      * @param Api $api
@@ -83,6 +95,8 @@ class Call extends \Magento\Framework\App\Action\Action
         AdviceRequest $adviceRequest,
         AdviceBuilder $adviceBuilder,
         QuoteFactory $quoteFactory,
+        OrderFactory $orderFactory,
+        OrderApi $orderApi,
         Registry $registry,
         Logger $logger,
         Api $api
@@ -92,7 +106,9 @@ class Call extends \Magento\Framework\App\Action\Action
         $this->adviceBuilder = $adviceBuilder;
         $this->adviceRequest = $adviceRequest;
         $this->quoteFactory = $quoteFactory;
+        $this->orderFactory = $orderFactory;
         $this->scopeConfig = $scopeConfig;
+        $this->apiOrderLayer = $orderApi;
         $this->registry = $registry;
         $this->request = $request;
         $this->session = $session;
@@ -134,24 +150,29 @@ class Call extends \Magento\Framework\App\Action\Action
         $status = $callResponse->checkout->status;
         $authType = $callResponse->checkout->authentication_type->auth_type;
         $this->logger->log('Riskified Advise Call Response status: ' . $status);
-        $paymentDetails = array(
-            'date' => $currentDate = date('Y-m-d H:i:s', time()),
-            'auth_type' => $authType,
-            'status' => $status
-        );
-
-        //saves advise call returned data in quote Payment (additional data)
-        $this->updateQuotePaymentDetailsInDb($quoteId, $paymentDetails);
-
         //use this status while backend order validation
         $this->session->setAdviceCallStatus($status);
         if($status != "captured"){
             $adviceCallStatus = 3;
+            $paymentDetails = array(
+                'date' => $currentDate = date('Y-m-d H:i:s', time()),
+                'auth_type' => 'fraud',
+                'status' => $status
+            );
             $logMessage = 'Quote ' . $quoteId . ' is set as denied and sent to Riskified. Additional data saved in database (paymentQuote table). Riskified verification (advise call) level.';
+            //saves advise call returned data in quote Payment (additional data)
+            $this->updateQuotePaymentDetailsInDb($quoteId, $paymentDetails);
+            //Riskified defined order as fraud - order data is send to Riskified
+            $this->sendDeniedOrderToRiskified($quote);
             $this->logger->log($logMessage);
             $message = 'Checkout Declined.';
             $this->messageManager->addError(__("Checkout Declined"));
         }else {
+            $paymentDetails = array(
+                'date' => $currentDate = date('Y-m-d H:i:s', time()),
+                'auth_type' => $authType,
+                'status' => $status
+            );
             if($authType == "sca"){
                 $adviceCallStatus = false;
                 $message = 'Transaction type: sca.';
@@ -159,6 +180,8 @@ class Call extends \Magento\Framework\App\Action\Action
                 $adviceCallStatus = true;
                 $message = 'Transaction type: tra.';
             }
+            //saves advise call returned data in quote Payment (additional data)
+            $this->updateQuotePaymentDetailsInDb($quoteId, $paymentDetails);
         }
 
         return  $this->resultJsonFactory->create()->setData(['advice_status' => $adviceCallStatus, 'message' => $message]);
@@ -211,5 +234,22 @@ class Call extends \Magento\Framework\App\Action\Action
         }
 
         return $quoteId;
+    }
+
+    /**
+     * Sends Denied Quote to Riskified Api
+     */
+    protected function sendDeniedOrderToRiskified($quote)
+    {
+        $orderFactory = $this->orderFactory->create();
+        $order = $orderFactory->loadByAttribute('quote_id', $quote->getEntityId());
+        if(is_numeric($order->getEntityId()) != 1){
+            $order = $quote;
+        }
+
+        $this->apiOrderLayer->post(
+            $order,
+            Api::ACTION_CHECKOUT_DENIED
+        );
     }
 }

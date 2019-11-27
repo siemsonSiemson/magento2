@@ -23,6 +23,8 @@ class Helper
 {
     private $_order;
 
+    private $_quote;
+
     /**
      * @var QuoteFactory
      */
@@ -163,6 +165,22 @@ class Helper
     }
 
     /**
+     * @param $model
+     */
+    public function setOuote($model)
+    {
+        $this->_quote = $model;
+    }
+
+    /**
+     * @param $model
+     */
+    public function getSavedQuote()
+    {
+        return $this->_quote;
+    }
+
+    /**
      * @param \Magento\Checkout\Model\Session $checkoutSession
      */
     public function setCheckoutSession($checkoutSession)
@@ -208,6 +226,24 @@ class Helper
     }
 
     /**
+     * @return null|Model\DiscountCode
+     * @throws \Exception
+     */
+    public function getQuoteDiscountCodes()
+    {
+        $code = $this->getSavedQuote()->getDiscountDescription();
+        $amount = $this->getSavedQuote()->getDiscountAmount();
+        if ($amount && $code) {
+            return new Model\DiscountCode(array_filter(array(
+                'code' => $code,
+                'amount' => $amount
+            )));
+        }
+
+        return null;
+    }
+
+    /**
      * @return null|Model\Address
      */
     public function getShippingAddress()
@@ -219,9 +255,27 @@ class Helper
     /**
      * @return null|Model\Address
      */
+    public function getQuoteShippingAddress()
+    {
+        $mageAddr = $this->getSavedQuote()->getShippingAddress();
+        return $this->getAddress($mageAddr);
+    }
+
+    /**
+     * @return null|Model\Address
+     */
     public function getBillingAddress()
     {
         $mageAddr = $this->getOrder()->getBillingAddress();
+        return $this->getAddress($mageAddr);
+    }
+
+    /**
+     * @return null|Model\Address
+     */
+    public function getQuoteBillingAddress()
+    {
+        $mageAddr = $this->getSavedQuote()->getBillingAddress();
         return $this->getAddress($mageAddr);
     }
 
@@ -275,6 +329,44 @@ class Helper
     }
 
     /**
+     * @return Model\Customer
+     * @throws \Exception
+     */
+    public function getQuoteCustomer()
+    {
+        $customer_id = $this->getSavedQuote()->getCustomerId();
+        $customer_props = array(
+            'id' => $customer_id,
+            'email' => $this->getSavedQuote()->getCustomerEmail(),
+            'first_name' => $this->getSavedQuote()->getCustomerFirstname(),
+            'last_name' => $this->getSavedQuote()->getCustomerLastname(),
+            'note' => $this->getSavedQuote()->getCustomerNote(),
+            'group_name' => $this->getSavedQuote()->getCustomerGroupId()
+        );
+        if ($customer_id) {
+            $customer_details = $this->customer->load($customer_id);
+            $customer_props['created_at'] = $this->formatDateAsIso8601($customer_details->getCreatedAt());
+            $customer_props['updated_at'] = $this->formatDateAsIso8601($customer_details->getUpdatedAt());
+            try {
+                $customer_orders = $this->_orderFactory->create()->addFieldToFilter('customer_id', $customer_id);
+                $customer_orders_count = $customer_orders->getSize();
+                $customer_props['orders_count'] = $customer_orders_count;
+                if ($customer_orders_count) {
+                    $customer_props['last_order_id'] = $customer_orders->getLastItem()->getId();
+                    $total_spent = $customer_orders
+                        ->addExpressionFieldToSelect('sum_total', 'SUM(base_grand_total)', 'base_grand_total')
+                        ->fetchItem()->getSumTotal();
+                    $customer_props['total_spent'] = $total_spent;
+                }
+            } catch (\Exception $e) {
+                $this->_logger->critical($e);
+                $this->_messageManager->addError('Riskified extension: ' . $e->getMessage());
+            }
+        }
+        return new Model\Customer(array_filter($customer_props, 'strlen'));
+    }
+
+    /**
      * @return array
      */
     public function getLineItems()
@@ -282,6 +374,20 @@ class Helper
         $line_items = array();
 
         foreach ($this->getOrder()->getAllVisibleItems() as $key => $item) {
+            $line_items[] = $this->getPreparedLineItem($item);
+
+        }
+        return $line_items;
+    }
+
+    /**
+     * @return array
+     */
+    public function getQuoteLineItems()
+    {
+        $line_items = array();
+
+        foreach ($this->getSavedQuote()->getAllVisibleItems() as $key => $item) {
             $line_items[] = $this->getPreparedLineItem($item);
 
         }
@@ -479,6 +585,73 @@ class Helper
     }
 
     /**
+     * @return null|Model\PaymentDetails
+     * @throws \Exception
+     */
+    public function getQuotePaymentDetails()
+    {
+        $order = $this->getSavedQuote();
+        $payment = $order->getPayment();
+
+        if (!$payment) {
+            return null;
+        }
+
+        if ($this->_apiConfig->isLoggingEnabled()) {
+            $this->_apiLogger->payment($this->getSavedQuote());
+        }
+        $paymentData = [];
+
+        try {
+            $paymentProcessor = $this->getPaymentProcessor($this->getSavedQuote());
+            $paymentData = $paymentProcessor->getDetails();
+        } catch (\Exception $e) {
+            $this->_apiLogger->log(__(
+                'Riskified: %1',
+                $e->getMessage()
+            ));
+        }
+
+        $this->preparePaymentData($payment, $paymentData);
+        if (isset($paymentProcessor)
+            && $paymentProcessor instanceof \Riskified\Decider\Model\Api\Order\PaymentProcessor\Paypal
+        ) {
+            return new Model\PaymentDetails(array_filter(array(
+                'authorization_id' => $paymentData['transaction_id'],
+                'payer_email' => $paymentData['payer_email'],
+                'payer_status' => isset($paymentData['payer_status']) ? $paymentData['payer_status'] : '',
+                'payer_address_status' => $paymentData['payer_address_status'],
+                'protection_eligibility' => $paymentData['protection_eligibility'],
+                'payment_status' => $paymentData['payment_status'],
+                'pending_reason' => $paymentData['pending_reason'],
+            ), 'strlen'));
+        }
+
+        return new Model\PaymentDetails(array_filter(array(
+            'authorization_id' => $paymentData['transaction_id'],
+            'avs_result_code' => $paymentData['avs_result_code'],
+            'cvv_result_code' => $paymentData['cvv_result_code'],
+            'credit_card_number' => $paymentData['credit_card_number'],
+            'credit_card_company' => $paymentData['credit_card_company'],
+            'credit_card_bin' => $paymentData['credit_card_bin'],
+
+            '_type' => 'NEED MATCHING - can be omitted',
+            'id' => $order->getEntityId(),
+            'gateway' => 'NEED MATCHING',
+            'acquirer_bin' => 'NEED MATCHING',
+            'mid' => 'NEED MATCHING',
+            'authentication_result' => new Model\AuthenticationResult([
+                'created_at' => date('Y-m-d H:i:s', time()),
+                'eci' => 'NEED MATCHING',
+                'cavv' => 'NEED MATCHING',
+                'trans_status' => 'NEED MATCHING',
+                'trans_status_reason' => 'NEED MATCHING',
+                'liability_shift' => 'NEED MATCHING',
+            ])
+        ), 'strlen'));
+    }
+
+    /**
      * @param $order
      *
      * @return PaymentProcessor\AbstractPayment
@@ -534,6 +707,19 @@ class Helper
             'price' => $this->getOrder()->getShippingAmount(),
             'title' => strip_tags($this->getOrder()->getShippingDescription()),
             'code' => $this->getOrder()->getShippingMethod()
+        ), 'strlen'));
+    }
+
+    /**
+     * @return Model\ShippingLine
+     * @throws \Exception
+     */
+    public function getQuoteShippingLines()
+    {
+        return new Model\ShippingLine(array_filter(array(
+            'price' => $this->getSavedQuote()->getShippingAmount(),
+            'title' => strip_tags($this->getSavedQuote()->getShippingDescription()),
+            'code' => $this->getSavedQuote()->getShippingMethod()
         ), 'strlen'));
     }
 

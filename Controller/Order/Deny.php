@@ -4,12 +4,13 @@ namespace Riskified\Decider\Controller\Order;
 use Riskified\Decider\Model\Api\Request\Advice as AdviceRequest;
 use Riskified\Decider\Model\Api\Builder\Advice as AdviceBuilder;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Riskified\Decider\Model\Api\Order as OrderApi;
 use Riskified\Decider\Model\Api\Log as Logger;
-use \Magento\Quote\Model\QuoteFactory;
+use Magento\Quote\Model\QuoteFactory;
+use Magento\Sales\Model\OrderFactory;
 use http\Exception\RuntimeException;
 use Riskified\Decider\Model\Api\Api;
-use \Magento\Framework\Registry;
-
+use Magento\Framework\Registry;
 
 class Deny extends \Magento\Framework\App\Action\Action
 {
@@ -47,9 +48,17 @@ class Deny extends \Magento\Framework\App\Action\Action
      */
     protected $request;
     /**
+     * @var OrderApi
+     */
+    private $apiOrderLayer;
+    /**
      * @var QuoteFactory
      */
     private $quoteFactory;
+    /**
+     * @var OrderFactory
+     */
+    private $orderFactory;
     /**
      * @var QuoteIdMaskFactory
      */
@@ -68,8 +77,10 @@ class Deny extends \Magento\Framework\App\Action\Action
      * @param \Magento\Checkout\Model\Session $session
      * @param ScopeConfigInterface $scopeConfig
      * @param QuoteFactory $quoteFactory
+     * @param OrderFactory $orderFactory
      * @param AdviceBuilder $adviceBuilder
      * @param AdviceRequest $adviceRequest
+     * @param OrderApi $orderApi
      * @param Registry $registry
      * @param Logger $logger
      * @param Api $api
@@ -82,8 +93,10 @@ class Deny extends \Magento\Framework\App\Action\Action
         \Magento\Checkout\Model\Session $session,
         ScopeConfigInterface $scopeConfig,
         QuoteFactory $quoteFactory,
+        OrderFactory $orderFactory,
         AdviceBuilder $adviceBuilder,
         AdviceRequest $adviceRequest,
+        OrderApi $orderApi,
         Registry $registry,
         Logger $logger,
         Api $api
@@ -93,7 +106,9 @@ class Deny extends \Magento\Framework\App\Action\Action
         $this->adviceBuilder = $adviceBuilder;
         $this->adviceRequest = $adviceRequest;
         $this->quoteFactory = $quoteFactory;
+        $this->orderFactory = $orderFactory;
         $this->scopeConfig = $scopeConfig;
+        $this->apiOrderLayer = $orderApi;
         $this->registry = $registry;
         $this->request = $request;
         $this->session = $session;
@@ -129,7 +144,7 @@ class Deny extends \Magento\Framework\App\Action\Action
             $payload['date'] = $currentDate = date('Y-m-d H:i:s', time());
             $this->updateQuotePaymentDetailsInDb($quote, $payload);
             //Riskified defined order as fraud - order data is send to Riskified
-            $this->sendDeniedOrderToRiskified($payload, $quote);
+            $this->sendDeniedOrderToRiskified($quote);
             $this->logger->log($message);
         }else{
             $message = 'Quote ' . $quoteId . ' cannot be found - cannot send fraud try to Riskified.';
@@ -173,11 +188,16 @@ class Deny extends \Magento\Framework\App\Action\Action
     /**
      * Sends Denied Quote to Riskified Api
      */
-    protected function sendDeniedOrderToRiskified($params, $quote)
+    protected function sendDeniedOrderToRiskified($quote)
     {
-        $this->_eventManager->dispatch(
-            'riskified_decider_deny_order_cause_riskified_fraud_or_thredesecure_fail',
-            ['postPayload' => $params, 'quote' => $quote]
+        $orderFactory = $this->orderFactory->create();
+        $order = $orderFactory->loadByAttribute('quote_id', $quote->getEntityId());
+        if(is_numeric($order->getEntityId()) != 1){
+            $order = $quote;
+        }
+        $this->apiOrderLayer->post(
+            $order,
+            Api::ACTION_CHECKOUT_DENIED
         );
     }
 

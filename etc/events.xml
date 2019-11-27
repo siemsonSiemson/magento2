@@ -25,8 +25,4 @@
         <observer name="riskified_decider_order_update_declined"
                   instance="Riskified\Decider\Model\Observer\Order\Declined"/>
     </event>
-    <event name="riskified_decider_deny_order_cause_riskified_fraud_or_thredesecure_fail">
-        <observer name="refuse_quote_payment_for_advise_call"
-                  instance="Riskified\Decider\Model\Observer\QuotePaymentFailed"/>
-    </event>
 </config>

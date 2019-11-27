@@ -167,7 +167,12 @@ class Order
                     $response = $transport->fulfillOrder($orderForTransport);
                     break;
                 case Api::ACTION_CHECKOUT_DENIED:
-                    $checkoutForTransport = $this->loadQuote($order);
+                    if(get_class($order) == 'Magento\Quote\Model\Quote\Interceptor'){
+                        $this->_orderHelper->setOuote($order);
+                        $checkoutForTransport = $this->loadQuote($order);
+                    }else{
+                        $checkoutForTransport = $this->loadOrder($order);
+                    }
                     $response = $transport->deniedCheckout($checkoutForTransport);
                     break;
             }
@@ -466,7 +471,13 @@ class Order
         return $i;
     }
 
-    private function loadQuote($model)
+    /**
+     * Returns Checkout Object build of quote & order data - ready to send to Riskified.
+     * @param $model
+     * @return Model\Checkout
+     * @throws \Exception
+     */
+    private function loadOrder($model)
     {
         $gateway = 'unavailable';
         if ($model->getPayment()) {
@@ -517,6 +528,69 @@ class Order
         $order->payment_details = $this->_orderHelper->getPaymentDetails();
         $order->line_items = $this->_orderHelper->getLineItems();
         $order->shipping_lines = $this->_orderHelper->getShippingLines();
+        if (!$this->_backendAuthSession->isLoggedIn()) {
+            $order->client_details = $this->_orderHelper->getClientDetails();
+        }
+
+        return $order;
+    }
+
+    /**
+     * Returns Checkout Object build of quote data(order doesn't exist already) - ready to send to Riskified.
+     * @param $model
+     * @return Model\Checkout
+     * @throws \Exception
+     */
+    private function loadQuote($model)
+    {
+        $gateway = 'unavailable';
+        if ($model->getPayment()) {
+            $gateway = $model->getPayment()->getMethod();
+        }
+        $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
+        $bin = $this->scopeConfig->getValue(self::XML_ADVISE_BIN, $storeScope);
+        $order_array = [
+            'id' => (int) $model->getQuoteId(),
+            'name' => $model->getIncrementId(),
+            'email' => $model->getCustomerEmail(),
+            'created_at' => $this->_orderHelper->formatDateAsIso8601($model->getCreatedAt()),
+            'currency' => $model->getOrderCurrencyCode(),
+            'updated_at' => $this->_orderHelper->formatDateAsIso8601($model->getUpdatedAt()),
+            'gateway' => $gateway,
+//            'browser_ip' => $this->_orderHelper->getRemoteIp(),
+            'note' => $model->getCustomerNote(),
+            'total_price' => $model->getGrandTotal(),
+            'total_discounts' => $model->getDiscountAmount(),
+            'subtotal_price' => $model->getBaseSubtotalInclTax(),
+            'discount_codes' => $this->_orderHelper->getQuoteDiscountCodes($model),
+            'taxes_included' => true,
+            'total_tax' => $model->getBaseTaxAmount(),
+            'total_weight' => $model->getWeight(),
+//            'cancelled_at' => $this->_orderHelper->formatDateAsIso8601($this->_orderHelper->getCancelledAt()),
+            'financial_status' => $model->getState(),
+            'fulfillment_status' => $model->getStatus(),
+            'vendor_id' => $model->getStoreId(),
+            'vendor_name' => $model->getStoreName(),
+            'authentication_type' => new Model\AuthenticationType([
+                'auth_type' => 'fraud',
+                'exemption_method' => '3ds'
+            ]),
+            'bin' => $bin
+//            'cart_token' => $this->session->getSessionId()
+        ];
+
+        if ($this->_orderHelper->getCustomerSession()->isLoggedIn()) {
+            unset($order_array['browser_ip']);
+            unset($order_array['cart_token']);
+        }
+        $payload = array_filter($order_array, 'strlen');
+        $order = new Model\Checkout($payload);
+        $order->customer = $this->_orderHelper->getQuoteCustomer();
+        $order->shipping_address = $this->_orderHelper->getQuoteShippingAddress();
+        $order->billing_address = $this->_orderHelper->getQuoteBillingAddress();
+        $order->payment_details = $this->_orderHelper->getQuotePaymentDetails();
+        $order->line_items = $this->_orderHelper->getQuoteLineItems();
+        $order->shipping_lines = $this->_orderHelper->getQuoteShippingLines();
         if (!$this->_backendAuthSession->isLoggedIn()) {
             $order->client_details = $this->_orderHelper->getClientDetails();
         }
