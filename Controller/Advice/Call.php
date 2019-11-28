@@ -1,121 +1,9 @@
 <?php
+
 namespace Riskified\Decider\Controller\Advice;
 
-use Riskified\Decider\Model\Api\Request\Advice as AdviceRequest;
-use Riskified\Decider\Model\Api\Builder\Advice as AdviceBuilder;
-use Magento\Framework\App\Config\ScopeConfigInterface;
-use Riskified\Decider\Model\Api\Order as OrderApi;
-use Riskified\Decider\Model\Api\Log as Logger;
-use Magento\Quote\Model\QuoteFactory;
-use Magento\Sales\Model\OrderFactory;
-use http\Exception\RuntimeException;
-use Riskified\Decider\Model\Api\Api;
-use Magento\Framework\Registry;
-
-class Call extends \Magento\Framework\App\Action\Action
+class Call extends \Riskified\Decider\Controller\AdviceHelper
 {
-    const XML_ADVISE_ENABLED = 'riskified/riskified_advise_process/enabled';
-    /**
-     * @var ScopeConfigInterface
-     */
-    private $scopeConfig;
-    /**
-     * @var Registry
-     */
-    private $registry;
-    /**
-     * @var AdviceBuilder
-     */
-    private $adviceBuilder;
-    /**
-     * @var AdviceRequest
-     */
-    private $adviceRequest;
-    /**
-     * @var Api
-     */
-    private $api;
-    /**
-     * @var Logger
-     */
-    private $logger;
-    /**
-     * @var \Magento\Checkout\Model\Session
-     */
-    private $session;
-    /**
-     * @var \Magento\Framework\App\RequestInterface
-     */
-    protected $request;
-    /**
-     * @var QuoteFactory
-     */
-    private $quoteFactory;
-    /**
-     * @var OrderFactory
-     */
-    private $orderFactory;
-    /**
-     * @var OrderApi
-     */
-    private $apiOrderLayer;
-    /**
-     * @var QuoteIdMaskFactory
-     */
-    private $quoteIdMaskFactory;
-    /**
-     * @var \Magento\Framework\Controller\Result\JsonFactory
-     */
-    protected $resultJsonFactory;
-
-    /**
-     * Call constructor.
-     * @param \Magento\Framework\Controller\Result\JsonFactory $resultJsonFactory
-     * @param \Magento\Quote\Model\QuoteIdMaskFactory $quoteIdMaskFactory
-     * @param \Magento\Framework\App\Action\Context $context
-     * @param \Magento\Framework\App\Request\Http $request
-     * @param \Magento\Checkout\Model\Session $session
-     * @param ScopeConfigInterface $scopeConfig
-     * @param AdviceRequest $adviceRequest
-     * @param AdviceBuilder $adviceBuilder
-     * @param QuoteFactory $quoteFactory
-     * @param OrderFactory $orderFactory
-     * @param OrderApi $orderApi
-     * @param Registry $registry
-     * @param Logger $logger
-     * @param Api $api
-     */
-    public function __construct(
-        \Magento\Framework\Controller\Result\JsonFactory $resultJsonFactory,
-        \Magento\Quote\Model\QuoteIdMaskFactory $quoteIdMaskFactory,
-        \Magento\Framework\App\Action\Context $context,
-        \Magento\Framework\App\Request\Http $request,
-        \Magento\Checkout\Model\Session $session,
-        ScopeConfigInterface $scopeConfig,
-        AdviceRequest $adviceRequest,
-        AdviceBuilder $adviceBuilder,
-        QuoteFactory $quoteFactory,
-        OrderFactory $orderFactory,
-        OrderApi $orderApi,
-        Registry $registry,
-        Logger $logger,
-        Api $api
-    ){
-        $this->quoteIdMaskFactory = $quoteIdMaskFactory;
-        $this->resultJsonFactory = $resultJsonFactory;
-        $this->adviceBuilder = $adviceBuilder;
-        $this->adviceRequest = $adviceRequest;
-        $this->quoteFactory = $quoteFactory;
-        $this->orderFactory = $orderFactory;
-        $this->scopeConfig = $scopeConfig;
-        $this->apiOrderLayer = $orderApi;
-        $this->registry = $registry;
-        $this->request = $request;
-        $this->session = $session;
-        $this->logger = $logger;
-        $this->api = $api;
-        return parent::__construct($context);
-    }
 
     /**
      * Function fetches post data from order checkout payment step.
@@ -144,12 +32,12 @@ class Call extends \Magento\Framework\App\Action\Action
         $this->registry->register($quoteId, $quote);
 
         $this->api->initSdk();
-        $this->logger->log('Riskified Advise Call building json data from quote id: ' . $quoteId);
+        $this->logger->log(sprintf(__('advise_log_json_build'), $quoteId));
         $this->adviceBuilder->build($params);
         $callResponse = $this->adviceBuilder->request();
         $status = $callResponse->checkout->status;
         $authType = $callResponse->checkout->authentication_type->auth_type;
-        $this->logger->log('Riskified Advise Call Response status: ' . $status);
+        $this->logger->log(sprintf(__('advise_log_status'), $status));
         //use this status while backend order validation
         $this->session->setAdviceCallStatus($status);
         if($status != "captured"){
@@ -159,14 +47,14 @@ class Call extends \Magento\Framework\App\Action\Action
                 'auth_type' => 'fraud',
                 'status' => $status
             );
-            $logMessage = 'Quote ' . $quoteId . ' is set as denied and sent to Riskified. Additional data saved in database (paymentQuote table). Riskified verification (advise call) level.';
+            $logMessage = sprintf(__('advise_log_quote_denied'), $quoteId);
             //saves advise call returned data in quote Payment (additional data)
             $this->updateQuotePaymentDetailsInDb($quoteId, $paymentDetails);
             //Riskified defined order as fraud - order data is send to Riskified
             $this->sendDeniedOrderToRiskified($quote);
             $this->logger->log($logMessage);
-            $message = 'Checkout Declined.';
-            $this->messageManager->addError(__("Checkout Declined"));
+            $message = __('checkout_declined');
+            $this->messageManager->addError(__('checkout_declined'));
         }else {
             $paymentDetails = array(
                 'date' => $currentDate = date('Y-m-d H:i:s', time()),
@@ -175,10 +63,10 @@ class Call extends \Magento\Framework\App\Action\Action
             );
             if($authType == "sca"){
                 $adviceCallStatus = false;
-                $message = 'Transaction type: sca.';
+                $message = __('advice_sca');
             }else{
                 $adviceCallStatus = true;
-                $message = 'Transaction type: tra.';
+                $message = __('advice_tra');
             }
             //saves advise call returned data in quote Payment (additional data)
             $this->updateQuotePaymentDetailsInDb($quoteId, $paymentDetails);
@@ -197,59 +85,24 @@ class Call extends \Magento\Framework\App\Action\Action
     {
         $quote = $this->registry->registry($quoteId);
         if (isset($quote)) {
-            $this->logger->log('Quote ' . $quoteId . ' found - saving Riskified Advise or 3D Secure Response as additional quotePayment data in db.');
+            $this->logger->log(sprintf(__('advise_log_quote_save'), $quoteId));
             $quotePayment = $quote->getPayment();
             $additionalData = $quotePayment->getAdditionalData();
+
             //avoid overwriting quotePayment additional data
-            if (is_array($additionalData)) {
-                $additionalData[$paymentDetails['auth_type']] = $paymentDetails;
-                $additionalData = json_encode($additionalData);
-            } else {
-                $additionalData = [$paymentDetails['auth_type'] => $paymentDetails];
-                $additionalData = json_encode($additionalData);
+            if (!is_array($additionalData)) {
+                $additionalData = [];
             }
+            $additionalData[$paymentDetails['auth_type']] = $paymentDetails;
+            $additionalData = json_encode($additionalData);
             try {
                 $quotePayment->setAdditionalData($additionalData);
                 $quotePayment->save();
             } catch (RuntimeException $e) {
-                $this->logger->log('Cannot save quotePayment additional data ' . $e->getMessage());
+                $this->logger->log(sprintf(__('advise_log_no_quote_found'), $e->getMessage()));
             }
         } else {
-            $this->logger->log('Quote ' . $quoteId . ' not found to save additional quotePayment data in db.');
+            $this->logger->log(sprintf(__('advise_log_no_quote_found'), $quoteId));
         }
-    }
-
-    /**
-     * Returns unmasked quote id.
-     * @param $cartId
-     * @return int|string
-     */
-    protected function getQuoteId($cartId)
-    {
-        if(is_numeric($cartId)){
-            $quoteId = $cartId;
-        }else{
-            $quoteIdMask = $this->quoteIdMaskFactory->create()->load($cartId, 'masked_id');
-            $quoteId = $quoteIdMask->getQuoteId();
-        }
-
-        return $quoteId;
-    }
-
-    /**
-     * Sends Denied Quote to Riskified Api
-     */
-    protected function sendDeniedOrderToRiskified($quote)
-    {
-        $orderFactory = $this->orderFactory->create();
-        $order = $orderFactory->loadByAttribute('quote_id', $quote->getEntityId());
-        if(is_numeric($order->getEntityId()) != 1){
-            $order = $quote;
-        }
-
-        $this->apiOrderLayer->post(
-            $order,
-            Api::ACTION_CHECKOUT_DENIED
-        );
     }
 }

@@ -80,50 +80,29 @@ class Advice {
         $currencyObject = $cart->getCurrency();
         $customerObject = $cart->getCustomer();
         $paymentObject = $cart->getPayment();
-        if($gateway == "braintree_paypal"){
-            $this->json = $this->serializer->serialize(
-                [
-                    "checkout" => [
-                        "id" => $cart->getId(),
-                        "email" => $customerObject->getEmail(),
-                        "currency" => $currencyObject->getQuoteCurrencyCode(),
-                        "total_price" => $cart->getGrandTotal(),
-                        "payment_details" => [
-                            [
-                                "email" => isset($params['email']) ? $params['email'] : $customerObject->getEmail(),
-                                'payer_status' => 'verified',
-                                'payer_address_status' => 'unconfirmed',
-                                'protection_eligibility' => 'Eligible',
-                            ]
-                        ],
-                        "_type" => 'paypal',
-                        "gateway" => $paymentObject->getMethod(),
-                    ]
+
+        $this->json = $this->serializer->serialize(
+            [
+                "checkout" => [
+                    "id" => $cart->getId(),
+                    "email" => isset($params['email']) ? $params['email'] : $customerObject->getEmail(),
+                    "currency" => $currencyObject->getQuoteCurrencyCode(),
+                    "total_price" => $cart->getGrandTotal(),
+                    "payment_details" => [
+                        [
+                            "avs_result_code" => "Y",
+                            "credit_card_bin" => "492044",
+                            "credit_card_company" => "Visa",
+                            "credit_card_number" => "4111111111111111",
+                            "cvv_result_code" => "M"
+                        ]
+                    ],
+                    "_type" => 'credit_card',
+                    "gateway" => $paymentObject->getMethod(),
                 ]
-            );
-        }else{
-            $this->json = $this->serializer->serialize(
-                [
-                    "checkout" => [
-                        "id" => $cart->getId(),
-                        "email" => isset($params['email']) ? $params['email'] : $customerObject->getEmail(),
-                        "currency" => $currencyObject->getQuoteCurrencyCode(),
-                        "total_price" => $cart->getGrandTotal(),
-                        "payment_details" => [
-                            [
-                                "avs_result_code" => "Y",
-                                "credit_card_bin" => "492044",
-                                "credit_card_company" => "Visa",
-                                "credit_card_number" => "4111111111111111",
-                                "cvv_result_code" => "M"
-                            ]
-                        ],
-                        "_type" => 'credit_card',
-                        "gateway" => $paymentObject->getMethod(),
-                    ]
-                ]
-            );
-        }
+            ]
+        );
+
         return $this;
     }
     /**

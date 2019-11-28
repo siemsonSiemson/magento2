@@ -76,14 +76,14 @@ class OrderPlacedAfter implements ObserverInterface
             $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
             $adviseEnabled = $this->scopeConfig->getValue(self::XML_ADVISE_ENABLED, $storeScope);
             //check whether Riskified Advise is enabled in admin settings
-            if(in_array($paymetMethod, $this->paymentMethods) == 1){
+            if($adviseEnabled == 1){
                 //check order whether is fraud and adjust event action.
                 $isFraud = $this->isOrderFraud($quote);
             }else{
                 //when advise is enabled(admin) but payment method doesn't need 3DSec
                 $isFraud = false;
             }
-        }else{
+        }else {
             $isFraud = false;
         }
 
@@ -116,13 +116,13 @@ class OrderPlacedAfter implements ObserverInterface
      */
     private function isOrderFraud($quote)
     {
-        $this->logger->addInfo('First Riskified fraud checking for Quote: ' . $quote->getEntityId() . '. Process withing OrderPlacedAfter observer.');
+        $this->logger->addInfo(sprintf(__('advise_log_first_fraud'), $quote->getEntityId()));
         $this->adviceBuilder->build(['quote_id' => $quote->getEntityId()]);
         $callResponse = $this->adviceBuilder->request();
         $status = $callResponse->checkout->status;
         $authType = $callResponse->checkout->authentication_type->auth_type;
         if($status != "captured"){
-            $this->logger->addInfo('Quote: ' . $quote->getEntityId() . ' is fraud - verified by Riskified.');
+            $this->logger->addInfo(sprintf(__('advise_log_quote_fraud'), $quote->getEntityId()));
             $isFraud = true;
             $paymentDetails = array(
                 'date' => $currentDate = date('Y-m-d H:i:s', time()),
@@ -134,7 +134,7 @@ class OrderPlacedAfter implements ObserverInterface
             $this->updateQuotePaymentDetailsInDb($quote, $paymentDetails);
         }else{
             $isFraud = false;
-            $this->logger->addInfo('Quote: ' . $quote->getEntityId() . ' is not a fraud - verified by Riskified.');
+            $this->logger->addInfo(sprintf(__('advise_log_quote_not_fraud'), $quote->getEntityId()));
         }
 
         return $isFraud;
@@ -149,7 +149,7 @@ class OrderPlacedAfter implements ObserverInterface
     protected function updateQuotePaymentDetailsInDb($quote, $paymentDetails)
     {
         if(isset($quote)){
-            $this->logger->addInfo('Quote ' . $quote->getEntityId() . ' found - saving fraud details as additional quotePayment data in db.');
+            $this->logger->addInfo(sprintf(__('advise_log_quote_found'), $quote->getEntityId()));
             $quotePayment = $quote->getPayment();
             $additionalData = $quotePayment->getAdditionalData();
             //avoid overwriting quotePayment additional data
@@ -164,10 +164,10 @@ class OrderPlacedAfter implements ObserverInterface
                 $quotePayment->setAdditionalData($additionalData);
                 $quotePayment->save();
             }catch(RuntimeException $e){
-                $this->logger->addInfo('Cannot save quotePayment additional data ' . $e->getMessage());
+                $this->logger->addInfo(sprintf(__('advise_log_cannot_save'), $e->getMessage()));
             }
         }else{
-            $this->logger->addInfo('Quote ' . $quote->getEntityId() . ' not found to save additional quotePayment data in db.');
+            $this->logger->addInfo(sprintf(__('advise_log_no_quote_found'), $quote->getEntityId()));
         }
     }
 }

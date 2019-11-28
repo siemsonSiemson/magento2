@@ -1,122 +1,9 @@
 <?php
+
 namespace Riskified\Decider\Controller\Order;
 
-use Riskified\Decider\Model\Api\Request\Advice as AdviceRequest;
-use Riskified\Decider\Model\Api\Builder\Advice as AdviceBuilder;
-use Magento\Framework\App\Config\ScopeConfigInterface;
-use Riskified\Decider\Model\Api\Order as OrderApi;
-use Riskified\Decider\Model\Api\Log as Logger;
-use Magento\Quote\Model\QuoteFactory;
-use Magento\Sales\Model\OrderFactory;
-use http\Exception\RuntimeException;
-use Riskified\Decider\Model\Api\Api;
-use Magento\Framework\Registry;
-
-class Deny extends \Magento\Framework\App\Action\Action
+class Deny extends \Riskified\Decider\Controller\AdviceHelper
 {
-    const XML_ADVISE_ENABLED = 'riskified/riskified_advise_process/enabled';
-    /**
-     * @var ScopeConfigInterface
-     */
-    private $scopeConfig;
-    /**
-     * @var Registry
-     */
-    private $registry;
-    /**
-     * @var AdviceBuilder
-     */
-    private $adviceBuilder;
-    /**
-     * @var AdviceRequest
-     */
-    private $adviceRequest;
-    /**
-     * @var Api
-     */
-    private $api;
-    /**
-     * @var Logger
-     */
-    private $logger;
-    /**
-     * @var \Magento\Checkout\Model\Session
-     */
-    private $session;
-    /**
-     * @var \Magento\Framework\App\RequestInterface
-     */
-    protected $request;
-    /**
-     * @var OrderApi
-     */
-    private $apiOrderLayer;
-    /**
-     * @var QuoteFactory
-     */
-    private $quoteFactory;
-    /**
-     * @var OrderFactory
-     */
-    private $orderFactory;
-    /**
-     * @var QuoteIdMaskFactory
-     */
-    private $quoteIdMaskFactory;
-    /**
-     * @var \Magento\Framework\Controller\Result\JsonFactory
-     */
-    protected $resultJsonFactory;
-
-    /**
-     * Deny constructor.
-     * @param \Magento\Framework\Controller\Result\JsonFactory $resultJsonFactory
-     * @param \Magento\Quote\Model\QuoteIdMaskFactory $quoteIdMaskFactory
-     * @param \Magento\Framework\App\Action\Context $context
-     * @param \Magento\Framework\App\Request\Http $request
-     * @param \Magento\Checkout\Model\Session $session
-     * @param ScopeConfigInterface $scopeConfig
-     * @param QuoteFactory $quoteFactory
-     * @param OrderFactory $orderFactory
-     * @param AdviceBuilder $adviceBuilder
-     * @param AdviceRequest $adviceRequest
-     * @param OrderApi $orderApi
-     * @param Registry $registry
-     * @param Logger $logger
-     * @param Api $api
-     */
-    public function __construct(
-        \Magento\Framework\Controller\Result\JsonFactory $resultJsonFactory,
-        \Magento\Quote\Model\QuoteIdMaskFactory $quoteIdMaskFactory,
-        \Magento\Framework\App\Action\Context $context,
-        \Magento\Framework\App\Request\Http $request,
-        \Magento\Checkout\Model\Session $session,
-        ScopeConfigInterface $scopeConfig,
-        QuoteFactory $quoteFactory,
-        OrderFactory $orderFactory,
-        AdviceBuilder $adviceBuilder,
-        AdviceRequest $adviceRequest,
-        OrderApi $orderApi,
-        Registry $registry,
-        Logger $logger,
-        Api $api
-    ){
-        $this->quoteIdMaskFactory = $quoteIdMaskFactory;
-        $this->resultJsonFactory = $resultJsonFactory;
-        $this->adviceBuilder = $adviceBuilder;
-        $this->adviceRequest = $adviceRequest;
-        $this->quoteFactory = $quoteFactory;
-        $this->orderFactory = $orderFactory;
-        $this->scopeConfig = $scopeConfig;
-        $this->apiOrderLayer = $orderApi;
-        $this->registry = $registry;
-        $this->request = $request;
-        $this->session = $session;
-        $this->logger = $logger;
-        $this->api = $api;
-        return parent::__construct($context);
-    }
-
     /**
      * Function fetches post data from order checkout payment step.
      * When 'mode' parameter is present data comes from 3D Secure Payment Authorisation Refuse and refusal details are saved in quotePayment table (additional_data). Order state is set as 'ACTION_CHECKOUT_DENIED'.
@@ -139,7 +26,7 @@ class Deny extends \Magento\Framework\App\Action\Action
         $quoteFactory = $this->quoteFactory;
         $quote = $quoteFactory->create()->load($quoteId);
         if(!is_null($quote)){
-            $message = 'Quote ' . $quoteId . ' is set as denied and sent to Riskified. Additional data saved in database (paymentQuote table). 3D Secure verification level - failed.';
+            $message = sprintf(__('deny_controller_deny'), $quoteId);
             //saves 3D Secure Response data in quotePayment table (additional data)
             $payload['date'] = $currentDate = date('Y-m-d H:i:s', time());
             $this->updateQuotePaymentDetailsInDb($quote, $payload);
@@ -147,7 +34,7 @@ class Deny extends \Magento\Framework\App\Action\Action
             $this->sendDeniedOrderToRiskified($quote);
             $this->logger->log($message);
         }else{
-            $message = 'Quote ' . $quoteId . ' cannot be found - cannot send fraud try to Riskified.';
+            $message = sprintf(__('deny_controller_not_found'), $quoteId);
             $this->logger->log($message);
         }
 
@@ -163,58 +50,23 @@ class Deny extends \Magento\Framework\App\Action\Action
     protected function updateQuotePaymentDetailsInDb($quote, $paymentDetails)
     {
         if(isset($quote)){
-            $this->logger->log('Quote ' . $quote->getEntityId() . ' found - saving Riskified Advise or 3D Secure Response as additional quotePayment data in db.');
+            $this->logger->log(sprintf(__('advise_log_quote_found'), $quote->getEntityId()));
             $quotePayment = $quote->getPayment();
             $additionalData = $quotePayment->getAdditionalData();
             //avoid overwriting quotePayment additional data
-            if(is_array($additionalData)){
-                $additionalData['3d_secure'] = $paymentDetails;
-                $additionalData = json_encode($additionalData);
-            }else{
-                $additionalData = ['3d_secure' => $paymentDetails];
-                $additionalData = json_encode($additionalData);
+            if (!is_array($additionalData)) {
+                $additionalData = [];
             }
+            $additionalData['3d_secure'] = $paymentDetails;
+            $additionalData = json_encode($additionalData);
             try{
                 $quotePayment->setAdditionalData($additionalData);
                 $quotePayment->save();
             }catch(RuntimeException $e){
-                $this->logger->log('Cannot save quotePayment additional data ' . $e->getMessage());
+                $this->logger->log(sprintf(__('advise_log_cannot_save'), $e->getMessage()));
             }
         }else{
-            $this->logger->log('Quote ' . $quote->getEntityId() . ' not found to save additional quotePayment data in db.');
+            $this->logger->log(sprintf(__('advise_log_no_quote_found'), $quote->getEntityId()));
         }
-    }
-
-    /**
-     * Sends Denied Quote to Riskified Api
-     */
-    protected function sendDeniedOrderToRiskified($quote)
-    {
-        $orderFactory = $this->orderFactory->create();
-        $order = $orderFactory->loadByAttribute('quote_id', $quote->getEntityId());
-        if(is_numeric($order->getEntityId()) != 1){
-            $order = $quote;
-        }
-        $this->apiOrderLayer->post(
-            $order,
-            Api::ACTION_CHECKOUT_DENIED
-        );
-    }
-
-    /**
-     * Returns unmasked quote id.
-     * @param $cartId
-     * @return int|string
-     */
-    protected function getQuoteId($cartId)
-    {
-        if(is_numeric($cartId)){
-            $quoteId = $cartId;
-        }else{
-            $quoteIdMask = $this->quoteIdMaskFactory->create()->load($cartId, 'masked_id');
-            $quoteId = $quoteIdMask->getQuoteId();
-        }
-
-        return $quoteId;
     }
 }
