@@ -8,140 +8,103 @@ define([
     'jquery',
     'Magento_Braintree/js/view/payment/adapter',
     'Magento_Checkout/js/model/quote',
-    'mage/translate',
-    'braintreeThreeDSecure',
-    'Magento_Checkout/js/model/full-screen-loader'
-], function ($, braintree, quote, $t, threeDSecure, fullScreenLoader) {
+    'mage/translate'
+], function ($, braintree, quote, $t) {
     'use strict';
 
-    var mixin = {
+        return function (braintreeThreedSecure) {
 
-        /**
-         * Validate Braintree payment nonce
-         * @param {Object} context
-         * @returns {Object}
-         */
-        validate: function (context) {
-            var clientInstance = braintree.getApiClient(),
-                state = $.Deferred(),
-                totalAmount = quote.totals()['base_grand_total'],
-                billingAddress = quote.billingAddress();
+            braintreeThreedSecure.config = null;
 
-            // No 3d secure if using CVV verification on vaulted cards
-            if (quote.paymentMethod().method.indexOf('braintree_cc_vault_') !== -1) {
-                if (this.config.useCvvVault === true) {
-                    state.resolve();
-                    return state.promise();
-                }
-            }
-
-            if (!this.isAmountAvailable(totalAmount) || !this.isCountryAvailable(billingAddress.countryId)) {
-                state.resolve();
-                return state.promise();
-            }
-
-            fullScreenLoader.startLoader();
-
-            var setup3d = function(clientInstance) {
-                threeDSecure.create({
-                    client: clientInstance
-                }, function (threeDSecureErr, threeDSecureInstance) {
-                    if (threeDSecureErr) {
-                        fullScreenLoader.stopLoader();
-                        return state.reject($t('Please try again with another form of payment.'));
-                    }
-
-                    var threeDSContainer = document.createElement('div'),
-                        tdmask = document.createElement('div'),
-                        tdframe = document.createElement('div'),
-                        tdbody = document.createElement('div');
-
-                    threeDSContainer.id = 'braintree-three-d-modal';
-                    tdmask.className ="bt-mask";
-                    tdframe.className ="bt-modal-frame";
-                    tdbody.className ="bt-modal-body";
-
-                    tdframe.appendChild(tdbody);
-                    threeDSContainer.appendChild(tdmask);
-                    threeDSContainer.appendChild(tdframe);
-
-                    threeDSecureInstance.verifyCard({
-                        amount: totalAmount,
-                        nonce: context.paymentMethodNonce,
-                        addFrame: function (err, iframe) {
-                            fullScreenLoader.stopLoader();
-
-                            if (err) {
-                                console.log("Unable to verify card over 3D Secure", err);
-                                return state.reject($t('Please try again with another form of payment.'));
-                            }
-
-                            tdbody.appendChild(iframe);
-                            document.body.appendChild(threeDSContainer);
-                        },
-                        removeFrame: function () {
-                            fullScreenLoader.startLoader();
-                            document.body.removeChild(threeDSContainer);
-                        }
-                    }, function (err, response) {
-                        fullScreenLoader.stopLoader();
-
-                        if (err) {
-                            console.log("3dsecure validation failed", err);
-                            return state.reject($t('Please try again with another form of payment.'));
-                        }
-
-                        var liability = {
-                            shifted: response.liabilityShifted,
-                            shiftPossible: response.liabilityShiftPossible
-                        };
-
-                        if (liability.shifted || !liability.shifted && !liability.shiftPossible) {
-                            context.paymentMethodNonce = response.nonce;
-                            state.resolve();
-                        } else {
-                            //saving 3D Secure Refuse reason in db.
-                            var serviceUrl = window.location.origin + "/decider/order/deny",
-                                payload = {
-                                    mode: 'braintree-3DS-deny',
-                                    quote_id: quote.getQuoteId(),
-                                    nonce: response.nonce,
-                                    liabilityShiftPossible: response.verificationDetails.liabilityShiftPossible,
-                                    liabilityShifted: response.verificationDetails.liabilityShifted
-                                };
-                            $.ajax({
-                                method: "POST",
-                                async: false,
-                                url: serviceUrl,
-                                data: payload
-                            });
-                            state.reject($t('Please try again with another form of payment.'));
-                        }
-                    });
-                });
+            braintreeThreedSecure.setConfig = function(config) {
+                this.config = config;
+                this.config.thresholdAmount = parseFloat(config.thresholdAmount);
             };
 
-            if (!clientInstance) {
-                require(['Magento_Braintree/js/view/payment/method-renderer/cc-form'], function(c) {
-                    var config = c.extend({
-                        defaults: {
-                            clientConfig: {
-                                onReady: function() {}
-                            }
-                        }
-                    });
-                    braintree.setConfig(config.defaults.clientConfig);
-                    braintree.setup(setup3d);
+            braintreeThreedSecure.getCode = function() {
+                return 'three_d_secure';
+            };
+
+            braintreeThreedSecure.isAmountAvailable = function(amount) {
+                amount = parseFloat(amount);
+
+                return amount >= this.config.thresholdAmount;
+            };
+
+            braintreeThreedSecure.validate = function(context) {
+                var client = braintree.getApiClient(),
+                    state = $.Deferred(),
+                    totalAmount = quote.totals()['base_grand_total'],
+                    billingAddress = quote.billingAddress();
+
+                if (!this.isAmountAvailable(totalAmount) || !this.isCountryAvailable(billingAddress.countryId)) {
+                    state.resolve();
+
+                    return state.promise();
+                }
+
+                client.verify3DS({
+                    amount: totalAmount,
+                    creditCard: context.paymentMethodNonce
+                }, function (error, response) {
+                    var liability;
+
+                    if (error) {
+                        state.reject(error.message);
+
+                        return;
+                    }
+
+                    liability = {
+                        shifted: response.verificationDetails.liabilityShifted,
+                        shiftPossible: response.verificationDetails.liabilityShiftPossible
+                    };
+
+                    if (liability.shifted || !liability.shifted && !liability.shiftPossible) {
+                        context.paymentMethodNonce = response.nonce;
+                        state.resolve();
+                    } else {
+                        //saving 3D Secure Refuse reason in db.
+                        var serviceUrl = window.location.origin + "/decider/order/deny",
+                            payload = {
+                                mode: 'braintree-3DS-deny',
+                                gateway: "braintree_cc",
+                                quote_id: quote.getQuoteId(),
+                                nonce: response.nonce,
+                                liabilityShiftPossible: response.verificationDetails.liabilityShiftPossible,
+                                liabilityShifted: response.verificationDetails.liabilityShifted
+                            };
+                        $.ajax({
+                            method: "POST",
+                            async: false,
+                            url: serviceUrl,
+                            data: payload
+                        });
+                        state.reject($t('Please try again with another form of payment.'));
+                    }
                 });
-            } else {
-                setup3d(clientInstance);
-            }
 
-            return state.promise();
-        }
-    };
+                return state.promise();
+            };
 
-    return function (target) {
-        return target.extend(mixin);
-    };
+            braintreeThreedSecure.isCountryAvailable = function(countryId) {
+                var key,
+                    specificCountries = this.config.specificCountries;
+
+                // all countries are available
+                if (!specificCountries.length) {
+                    return true;
+                }
+
+                for (key in specificCountries) {
+                    if (countryId === specificCountries[key]) {
+                        return true;
+                    }
+                }
+
+                return false;
+            };
+
+            return braintreeThreedSecure;
+        };
 });

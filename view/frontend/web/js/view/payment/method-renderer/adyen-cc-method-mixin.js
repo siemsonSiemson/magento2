@@ -165,6 +165,7 @@ define(
                                             quote_id: quote.getQuoteId(),
                                             reason: responseData.message,
                                             front_action: 'wrong password',
+                                            gateway: "adyen_cc"
                                         };
                                     $.ajax({
                                         method: "POST",

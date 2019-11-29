@@ -128,7 +128,6 @@ abstract class AdviceHelper extends \Magento\Framework\App\Action\Action
         if(is_numeric($order->getEntityId()) != 1){
             $order = $quote;
         }
-
         $this->apiOrderLayer->post(
             $order,
             Api::ACTION_CHECKOUT_DENIED

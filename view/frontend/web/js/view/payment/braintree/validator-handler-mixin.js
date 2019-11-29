@@ -26,6 +26,7 @@ define([
             if (!self.validators.length) {
                 var serviceUrl = window.location.origin + "/decider/advice/call",
                     payload = {
+                        mode: 'braintree-3DS-passed',
                         quote_id: quote.getQuoteId(),
                         email : quote.guestEmail,
                         gateway: "braintree_cc"
@@ -38,6 +39,7 @@ define([
                     url: serviceUrl,
                     data: payload
                 }).done(function( status ){
+                    var riskifiedMessage = status.message;
                     adviceStatus = status.advice_status;
                 });
 
@@ -49,7 +51,7 @@ define([
                         verify3DSecure.setConfig(config[verify3DSecure.getCode()]);
                         self.add(verify3DSecure);
                     } else {
-                        self.showError("The order was declined.");
+                        self.showError(riskifiedMessage);
                         return;
                     }
                 }

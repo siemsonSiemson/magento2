@@ -177,7 +177,6 @@ class Order
                     break;
             }
             $eventData['response'] = $response;
-
             $this->_eventManager->dispatch(
                 'riskified_decider_post_order_success',
                 $eventData

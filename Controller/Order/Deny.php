@@ -69,4 +69,22 @@ class Deny extends \Riskified\Decider\Controller\AdviceHelper
             $this->logger->log(sprintf(__('advise_log_no_quote_found'), $quote->getEntityId()));
         }
     }
+
+    /**
+     * @param $quote
+     * @return mixed
+     */
+    protected function sendDeniedOrderToRiskified($quote)
+    {
+        return parent::sendDeniedOrderToRiskified($quote);
+    }
+
+    /**
+     * @param $cartId
+     * @return mixed
+     */
+    protected function getQuoteId($cartId)
+    {
+        return parent::getQuoteId($cartId);
+    }
 }

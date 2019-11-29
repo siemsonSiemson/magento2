@@ -16,7 +16,7 @@ var config = {
             'Magento_Braintree/js/view/payment/method-renderer/paypal': {
                 'Riskified_Decider/js/view/payment/braintree/method-renderer/paypal-mixin': true
             },
-            'Adyen_Payment/js/view/payment/3d-secure': {
+            'Magento_Braintree/js/view/payment/3d-secure': {
                 'Riskified_Decider/js/view/payment/braintree/3d-secure-mixin': true
             },
         },
