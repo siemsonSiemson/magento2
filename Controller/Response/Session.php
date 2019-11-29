@@ -1,5 +1,8 @@
 <?php
 namespace Riskified\Decider\Controller\Response;
+
+use Magento\Framework\Controller\ResultFactory;
+
 class Session extends \Magento\Framework\App\Action\Action
 {
     private $customerSession;
@@ -13,7 +16,7 @@ class Session extends \Magento\Framework\App\Action\Action
     }
     public function execute()
     {
-        $result = $this->resultFactory->create("json");
+        $result = $this->resultFactory->create(ResultFactory::TYPE_JSON);
         $payload = ['session_id' => $this->customerSession->getSessionId()];
         $result = $result->setData($payload);
         return $result;
