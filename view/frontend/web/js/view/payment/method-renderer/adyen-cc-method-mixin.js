@@ -72,6 +72,7 @@ define(
                             //when 3Dsecure not enabled in admin but Riskifed requires it.
                             if(threeDS2Status !== true){
                                 alert('Adyen doesnt need 3D Secure but Riskified does.');
+                                self.basicThreeDValidators(response);
                             }else{
                                 window.location.replace(url.build(
                                     window.checkoutConfig.payment[quote.paymentMethod().method].redirectUrl)
