@@ -168,7 +168,7 @@ class Order
                     break;
                 case Api::ACTION_CHECKOUT_DENIED:
                     if(get_class($order) == 'Magento\Quote\Model\Quote\Interceptor'){
-                        $this->_orderHelper->setOuote($order);
+                        $this->_orderHelper->setQuote($order);
                         $checkoutForTransport = $this->loadQuote($order);
                     }else{
                         $checkoutForTransport = $this->loadOrder($order);

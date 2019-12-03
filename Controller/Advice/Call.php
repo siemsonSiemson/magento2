@@ -2,7 +2,7 @@
 
 namespace Riskified\Decider\Controller\Advice;
 
-class Call extends \Riskified\Decider\Controller\AdviceHelper
+class Call extends \Riskified\Decider\Controller\AdviceAbstract
 {
 
     /**
@@ -17,13 +17,10 @@ class Call extends \Riskified\Decider\Controller\AdviceHelper
      */
     public function execute()
     {
-        $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
-        $adviseEnabled = $this->scopeConfig->getValue(self::XML_ADVISE_ENABLED, $storeScope);
-        //check whether Riskified Advise is enabled in admin settings
+        $adviseEnabled = $this->isEnabled();
         if($adviseEnabled == 0){
             return  $this->resultJsonFactory->create()->setData(['advice_status' => 'disabled']);
         }
-
         $params = $this->request->getParams();
         $quoteId = $this->getQuoteId($params['quote_id']);
         $quoteFactory = $this->quoteFactory;
@@ -32,12 +29,12 @@ class Call extends \Riskified\Decider\Controller\AdviceHelper
         $this->registry->register($quoteId, $quote);
 
         $this->api->initSdk();
-        $this->logger->log(sprintf(__('advise_log_json_build'), $quoteId));
+        $this->logger->log(__('advise_log_json_build') . $quoteId);
         $this->adviceBuilder->build($params);
         $callResponse = $this->adviceBuilder->request();
         $status = $callResponse->checkout->status;
         $authType = $callResponse->checkout->authentication_type->auth_type;
-        $this->logger->log(sprintf(__('advise_log_status'), $status));
+        $this->logger->log(__('advise_log_status') . $status);
         //use this status while backend order validation
         $this->session->setAdviceCallStatus($status);
         if($status != "captured"){
@@ -47,7 +44,7 @@ class Call extends \Riskified\Decider\Controller\AdviceHelper
                 'auth_type' => 'fraud',
                 'status' => $status
             );
-            $logMessage = sprintf(__('advise_log_quote_denied'), $quoteId);
+            $logMessage = __('advise_log_quote_denied') . $quoteId;
             //saves advise call returned data in quote Payment (additional data)
             $this->updateQuotePaymentDetailsInDb($quoteId, $paymentDetails);
             //Riskified defined order as fraud - order data is send to Riskified
@@ -85,7 +82,7 @@ class Call extends \Riskified\Decider\Controller\AdviceHelper
     {
         $quote = $this->registry->registry($quoteId);
         if (isset($quote)) {
-            $this->logger->log(sprintf(__('advise_log_quote_save'), $quoteId));
+            $this->logger->log(__('advise_log_quote_save') . $quoteId);
             $quotePayment = $quote->getPayment();
             $additionalData = $quotePayment->getAdditionalData();
 
@@ -99,10 +96,10 @@ class Call extends \Riskified\Decider\Controller\AdviceHelper
                 $quotePayment->setAdditionalData($additionalData);
                 $quotePayment->save();
             } catch (RuntimeException $e) {
-                $this->logger->log(sprintf(__('advise_log_no_quote_found'), $e->getMessage()));
+                $this->logger->log(__('advise_log_no_quote_found') . $e->getMessage());
             }
         } else {
-            $this->logger->log(sprintf(__('advise_log_no_quote_found'), $quoteId));
+            $this->logger->log(__('advise_log_no_quote_found') . $quoteId);
         }
     }
 
@@ -122,5 +119,14 @@ class Call extends \Riskified\Decider\Controller\AdviceHelper
     protected function getQuoteId($cartId)
     {
         return parent::getQuoteId($cartId);
+    }
+
+    /**
+     * Checks if Advice Call is enabled in admin panel
+     * @return mixed
+     */
+    protected function isEnabled()
+    {
+        return parent::isEnabled();
     }
 }

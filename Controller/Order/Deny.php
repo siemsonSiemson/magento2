@@ -2,7 +2,7 @@
 
 namespace Riskified\Decider\Controller\Order;
 
-class Deny extends \Riskified\Decider\Controller\AdviceHelper
+class Deny extends \Riskified\Decider\Controller\AdviceAbstract
 {
     /**
      * Function fetches post data from order checkout payment step.
@@ -15,9 +15,7 @@ class Deny extends \Riskified\Decider\Controller\AdviceHelper
      */
     public function execute()
     {
-        $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
-        $adviseEnabled = $this->scopeConfig->getValue(self::XML_ADVISE_ENABLED, $storeScope);
-        //check whether Riskified Advise is enabled in admin settings
+        $adviseEnabled = $this->isEnabled();
         if($adviseEnabled == 0){
             return  $this->resultJsonFactory->create()->setData(['advice_status' => 'disabled']);
         }
@@ -26,7 +24,7 @@ class Deny extends \Riskified\Decider\Controller\AdviceHelper
         $quoteFactory = $this->quoteFactory;
         $quote = $quoteFactory->create()->load($quoteId);
         if(!is_null($quote)){
-            $message = sprintf(__('deny_controller_deny'), $quoteId);
+            $message = __('deny_controller_deny') . $quoteId;
             //saves 3D Secure Response data in quotePayment table (additional data)
             $payload['date'] = $currentDate = date('Y-m-d H:i:s', time());
             $this->updateQuotePaymentDetailsInDb($quote, $payload);
@@ -34,7 +32,7 @@ class Deny extends \Riskified\Decider\Controller\AdviceHelper
             $this->sendDeniedOrderToRiskified($quote);
             $this->logger->log($message);
         }else{
-            $message = sprintf(__('deny_controller_not_found'), $quoteId);
+            $message = __('deny_controller_not_found') . $quoteId;
             $this->logger->log($message);
         }
 
@@ -50,7 +48,7 @@ class Deny extends \Riskified\Decider\Controller\AdviceHelper
     protected function updateQuotePaymentDetailsInDb($quote, $paymentDetails)
     {
         if(isset($quote)){
-            $this->logger->log(sprintf(__('advise_log_quote_found'), $quote->getEntityId()));
+            $this->logger->log(__('advise_log_quote_found') . $quote->getEntityId());
             $quotePayment = $quote->getPayment();
             $additionalData = $quotePayment->getAdditionalData();
             //avoid overwriting quotePayment additional data
@@ -63,10 +61,10 @@ class Deny extends \Riskified\Decider\Controller\AdviceHelper
                 $quotePayment->setAdditionalData($additionalData);
                 $quotePayment->save();
             }catch(RuntimeException $e){
-                $this->logger->log(sprintf(__('advise_log_cannot_save'), $e->getMessage()));
+                $this->logger->log(__('advise_log_cannot_save') . $e->getMessage());
             }
         }else{
-            $this->logger->log(sprintf(__('advise_log_no_quote_found'), $quote->getEntityId()));
+            $this->logger->log(__('advise_log_no_quote_found') . $quote->getEntityId());
         }
     }
 
@@ -86,5 +84,14 @@ class Deny extends \Riskified\Decider\Controller\AdviceHelper
     protected function getQuoteId($cartId)
     {
         return parent::getQuoteId($cartId);
+    }
+
+    /**
+     * Checks if Advice Call is enabled in admin panel
+     * @return mixed
+     */
+    protected function isEnabled()
+    {
+        return parent::isEnabled();
     }
 }

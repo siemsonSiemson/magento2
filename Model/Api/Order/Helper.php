@@ -167,7 +167,7 @@ class Helper
     /**
      * @param $model
      */
-    public function setOuote($model)
+    public function setQuote($model)
     {
         $this->_quote = $model;
     }

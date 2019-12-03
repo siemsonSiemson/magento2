@@ -12,7 +12,7 @@ use http\Exception\RuntimeException;
 use Riskified\Decider\Model\Api\Api;
 use Magento\Framework\Registry;
 
-abstract class AdviceHelper extends \Magento\Framework\App\Action\Action
+abstract class AdviceAbstract extends \Magento\Framework\App\Action\Action
 {
     const XML_ADVISE_ENABLED = 'riskified/riskified_advise_process/enabled';
     /**
@@ -149,5 +149,17 @@ abstract class AdviceHelper extends \Magento\Framework\App\Action\Action
         }
 
         return intval($quoteId);
+    }
+
+    /**
+     * Checks if Advice Call is enabled in admin panel
+     * @return mixed
+     */
+    protected function isEnabled()
+    {
+        $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
+        $adviseEnabled = $this->scopeConfig->getValue(self::XML_ADVISE_ENABLED, $storeScope);
+        
+        return  intval($adviseEnabled);
     }
 }
