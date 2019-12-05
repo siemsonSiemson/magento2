@@ -88,6 +88,10 @@ class Order
                     $orderForTransport = $this->_orderHelper->getOrderFulfillments();
                     $response = $transport->fulfillOrder($orderForTransport);
                     break;
+                case Api::ACTION_REFUND:
+                    $orderForTransport = $this->load($order);
+                    $response = $transport->refundOrder($orderForTransport);
+                    break;
             }
             $eventData['response'] = $response;
 

@@ -25,7 +25,7 @@ class OrderPaymentRefund implements ObserverInterface
     {
         try {
             $order = $observer->getPayment()->getOrder();
-            $this->apiOrderLayer->post($order, Api::ACTION_CANCEL);
+            $this->apiOrderLayer->post($order, Api::ACTION_REFUND);
         } catch(\Exception $e) {
             $this->messageManager->addErrorMessage(
                 __("Riskified API Respond : %1", $e->getMessage())
