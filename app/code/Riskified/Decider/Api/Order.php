@@ -201,6 +201,10 @@ class Order
         $order->line_items = $this->_orderHelper->getLineItems();
         $order->shipping_lines = $this->_orderHelper->getShippingLines();
 
+        if(!is_null($this->_orderHelper->getRefundDetails())){
+            $order->refunds = $this->_orderHelper->getRefundDetails();
+        }
+
         if (!$this->_backendAuthSession->isLoggedIn()) {
             $order->client_details = $this->_orderHelper->getClientDetails();
         }

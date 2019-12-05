@@ -1,6 +1,9 @@
 <?php
 namespace Riskified\Decider\Api\Order;
+
 use Riskified\OrderWebhook\Model;
+use Magento\Framework\Api\SearchCriteriaBuilder;
+use Magento\Sales\Api\CreditmemoRepositoryInterface;
 class Helper
 {
     private $_order;
@@ -12,7 +15,11 @@ class Helper
     private $_orderFactory;
     private $_categoryFactory;
     private $_storeManager;
+    private $_creditmemoRepository;
+    private $_searchCriteriaBuilder;
     public function __construct(
+        CreditmemoRepositoryInterface $creditmemoRepository,
+        SearchCriteriaBuilder $searchCriteriaBuilder,
         \Magento\Framework\Logger\Monolog $logger,
         \Riskified\Decider\Api\Config $apiConfig,
         Log $apiLogger,
@@ -31,6 +38,8 @@ class Helper
         $this->_orderFactory = $orderFactory;
         $this->_categoryFactory = $categoryFactory;
         $this->_storeManager = $storeManager;
+        $this->_creditmemoRepository = $creditmemoRepository;
+        $this->_searchCriteriaBuilder = $searchCriteriaBuilder;
     }
     public function setOrder($model)
     {
@@ -77,6 +86,37 @@ class Helper
             'accept_language' => $resolver->getLocale(),
             'user_agent' => $httpHeader->getHttpUserAgent()
         ), 'strlen'));
+    }
+    public function getCreditMemoByOrderId($orderId)
+    {
+        $searchCriteria = $this->_searchCriteriaBuilder
+            ->addFilter('order_id', $orderId)->create();
+        try {
+            $creditmemos = $this->_creditmemoRepository->getList($searchCriteria);
+            $creditmemoRecords = $creditmemos->getItems();
+        } catch (Exception $exception)  {
+            $this->logger->critical($exception->getMessage());
+            $creditmemoRecords = null;
+        }
+        return $creditmemoRecords;
+    }
+    public function getRefundDetails()
+    {
+        $orderId = $this->getOrder()->getEntityId();
+        $creditMemos = $this->getCreditMemoByOrderId($orderId);
+        $creditMemo = $creditMemos->getFirstItem();
+        if($creditMemo){
+            return new Model\RefundDetails(array_filter(array(
+                'refund_id' => $creditMemo->getIncrementId(),
+                'amount' => $creditMemo->getSubtotal(),
+                'currency' => $creditMemo->getBaseCurrencyCode(),
+                'refunded_at' => $creditMemo->getCreatedAt(),
+                'reason' => $creditMemo->getCustomerNote()
+            ), 'strlen'));
+        }else{
+            return null;
+        }
+
     }
     public function getCustomer()
     {

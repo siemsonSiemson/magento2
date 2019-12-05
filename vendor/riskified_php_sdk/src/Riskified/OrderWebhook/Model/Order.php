@@ -70,6 +70,7 @@ class Order extends AbstractModel {
         'tags' => 'string optional',
         'vendor_id' => 'string optional',
         'vendor_name' => 'string optional',
+        'refunds' => 'object \RefundDetails',
 
         'shipping_address' => 'object \Address optional',
         'billing_address' => 'object \Address optional',
