@@ -174,7 +174,8 @@ define(
                                         url: serviceUrl,
                                         data: payload
                                     });
-                                    errorProcessor.process(result, self.messageContainer);
+                                }).error(function () {
+                                    popupModal.modal("closeModal");
                                     self.isPlaceOrderActionAllowed(true);
                                     fullScreenLoader.stopLoader();
                                 });
