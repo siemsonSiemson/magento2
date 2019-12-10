@@ -1,9 +1,12 @@
 <?php
 namespace Riskified\Decider\Api\Order;
+
 use Riskified\OrderWebhook\Model;
+
 class Helper
 {
     private $_order;
+    private $_quote;
     private $_apiLogger;
     private $_logger;
     private $_apiConfig;
@@ -39,6 +42,14 @@ class Helper
     public function getOrder()
     {
         return $this->_order;
+    }
+    public function setQuote($model)
+    {
+        $this->_quote = $model;
+    }
+    public function getSavedQuote()
+    {
+        return $this->_quote;
     }
     public function getOrderOrigId()
     {
