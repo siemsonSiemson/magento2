@@ -2,8 +2,6 @@
 namespace Riskified\Decider\Api\Order;
 
 use Riskified\OrderWebhook\Model;
-use Magento\Framework\Api\SearchCriteriaBuilder;
-use Magento\Sales\Api\CreditmemoRepositoryInterface;
 class Helper
 {
     private $_order;
@@ -15,11 +13,7 @@ class Helper
     private $_orderFactory;
     private $_categoryFactory;
     private $_storeManager;
-    private $_creditmemoRepository;
-    private $_searchCriteriaBuilder;
     public function __construct(
-        CreditmemoRepositoryInterface $creditmemoRepository,
-        SearchCriteriaBuilder $searchCriteriaBuilder,
         \Magento\Framework\Logger\Monolog $logger,
         \Riskified\Decider\Api\Config $apiConfig,
         Log $apiLogger,
@@ -38,8 +32,6 @@ class Helper
         $this->_orderFactory = $orderFactory;
         $this->_categoryFactory = $categoryFactory;
         $this->_storeManager = $storeManager;
-        $this->_creditmemoRepository = $creditmemoRepository;
-        $this->_searchCriteriaBuilder = $searchCriteriaBuilder;
     }
     public function setOrder($model)
     {

@@ -200,9 +200,9 @@ class Order
         $order->payment_details = $this->_orderHelper->getPaymentDetails();
         $order->line_items = $this->_orderHelper->getLineItems();
         $order->shipping_lines = $this->_orderHelper->getShippingLines();
-
-        if(empty($this->_orderHelper->getRefundDetails()) != 1){
-            $order->refunds = $this->_orderHelper->getRefundDetails();
+        $refundDetails = $this->_orderHelper->getRefundDetails();
+        if(empty($refundDetails) != 1){
+            $order->refunds = $refundDetails;
         }
 
         if (!$this->_backendAuthSession->isLoggedIn()) {
