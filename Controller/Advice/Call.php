@@ -19,7 +19,7 @@ class Call extends \Riskified\Decider\Controller\AdviceAbstract
     {
         $adviseEnabled = $this->isEnabled();
         if($adviseEnabled == 0){
-            return  $this->resultJsonFactory->create()->setData(['advice_status' => 'disabled']);
+            return  $this->resultJsonFactory->create()->setData(['advice_status' => 3]);
         }
         $params = $this->request->getParams();
         $quoteId = $this->getQuoteId($params['quote_id']);
