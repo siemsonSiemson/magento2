@@ -201,7 +201,7 @@ class Order
         $order->line_items = $this->_orderHelper->getLineItems();
         $order->shipping_lines = $this->_orderHelper->getShippingLines();
 
-        if(!is_null($this->_orderHelper->getRefundDetails())){
+        if(empty($this->_orderHelper->getRefundDetails()) != 1){
             $order->refunds = $this->_orderHelper->getRefundDetails();
         }
 

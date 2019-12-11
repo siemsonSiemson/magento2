@@ -87,36 +87,25 @@ class Helper
             'user_agent' => $httpHeader->getHttpUserAgent()
         ), 'strlen'));
     }
-    public function getCreditMemoByOrderId($orderId)
-    {
-        $searchCriteria = $this->_searchCriteriaBuilder
-            ->addFilter('order_id', $orderId)->create();
-        try {
-            $creditmemos = $this->_creditmemoRepository->getList($searchCriteria);
-            $creditmemoRecords = $creditmemos->getItems();
-        } catch (Exception $exception)  {
-            $this->logger->critical($exception->getMessage());
-            $creditmemoRecords = null;
-        }
-        return $creditmemoRecords;
-    }
     public function getRefundDetails()
     {
-        $orderId = $this->getOrder()->getEntityId();
-        $creditMemos = $this->getCreditMemoByOrderId($orderId);
-        $creditMemo = $creditMemos->getFirstItem();
-        if($creditMemo){
-            return new Model\RefundDetails(array_filter(array(
-                'refund_id' => $creditMemo->getIncrementId(),
-                'amount' => $creditMemo->getSubtotal(),
-                'currency' => $creditMemo->getBaseCurrencyCode(),
-                'refunded_at' => $creditMemo->getCreatedAt(),
-                'reason' => $creditMemo->getCustomerNote()
-            ), 'strlen'));
-        }else{
-            return null;
+        $order = $this->getOrder();
+        $creditMemos = $order->getCreditmemosCollection();
+        $refundObjectCollection = array();
+        if($creditMemos->getSize() > 0){
+            foreach($creditMemos as $memo){
+                $refundObject = new Model\RefundDetails(array_filter(array(
+                    'refund_id' => $memo->getIncrementId(),
+                    'amount' => $memo->getSubtotal(),
+                    'currency' => $memo->getBaseCurrencyCode(),
+                    'refunded_at' => $memo->getCreatedAt(),
+                    'reason' => $memo->getCustomerNote()
+                ), 'strlen'));
+                array_push($refundObjectCollection, $refundObject);
+            }
         }
 
+        return $refundObjectCollection;
     }
     public function getCustomer()
     {
