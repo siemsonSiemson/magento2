@@ -58,8 +58,30 @@ define(
 
                     //when Riskified Advise is disabled in admin
                     if(threeDS2Status == "disabled"){
-                        self.basicThreeDValidators(response);
-                        quote.setThreeDSecureStatus(quoteThreeDSecureState + 1);
+                        var self = this;
+                        var response = JSON.parse(responseJSON);
+
+                        if (!!response.threeDS2) {
+                            // render component
+                            self.renderThreeDS2ComponentOriginal(response.type, response.token);
+                        } else {
+                            self.getPlaceOrderDeferredObject()
+                                .fail(
+                                    function () {
+                                        fullScreenLoader.stopLoader();
+                                        self.isPlaceOrderActionAllowed(true);
+                                    }
+                                ).done(
+                                function () {
+                                    self.afterPlaceOrder();
+
+                                    if (self.redirectAfterPlaceOrder) {
+                                        // use custom redirect Link for supporting 3D secure
+                                        window.location.replace(url.build(window.checkoutConfig.payment[quote.paymentMethod().method].redirectUrl));
+                                    }
+                                }
+                            );
+                        }
                     }else{
                         if (threeDS2Status == 3) {
                             fullScreenLoader.stopLoader();
@@ -97,6 +119,66 @@ define(
                     window.location.replace(url.build(
                         window.checkoutConfig.payment[quote.paymentMethod().method].redirectUrl)
                     );
+                }
+            },
+            renderThreeDS2ComponentOriginal: function (type, token) {
+                var self = this;
+
+                var threeDS2Node = document.getElementById('threeDS2Container');
+
+                if (type == "IdentifyShopper") {
+                    self.threeDS2IdentifyComponent = self.checkout
+                        .create('threeDS2DeviceFingerprint', {
+                            fingerprintToken: token,
+                            onComplete: function (result) {
+                                threeds2.processThreeDS2(result.data).done(function (responseJSON) {
+                                    self.validateThreeDS2OrPlaceOrder(responseJSON)
+                                }).error(function () {
+                                    self.isPlaceOrderActionAllowed(true);
+                                    fullScreenLoader.stopLoader();
+                                });
+                            },
+                            onError: function (error) {
+                                console.log(JSON.stringify(error));
+                            }
+                        });
+
+                    self.threeDS2IdentifyComponent.mount(threeDS2Node);
+
+
+                } else if (type == "ChallengeShopper") {
+                    fullScreenLoader.stopLoader();
+
+                    var popupModal = $('#threeDS2Modal').modal({
+                        // disable user to hide popup
+                        clickableOverlay: false,
+                        // empty buttons, we don't need that
+                        buttons: [],
+                        modalClass: 'threeDS2Modal'
+                    });
+
+
+                    popupModal.modal("openModal");
+
+                    self.threeDS2ChallengeComponent = self.checkout
+                        .create('threeDS2Challenge', {
+                            challengeToken: token,
+                            onComplete: function (result) {
+                                popupModal.modal("closeModal");
+                                fullScreenLoader.startLoader();
+                                threeds2.processThreeDS2(result.data).done(function (responseJSON) {
+                                    self.validateThreeDS2OrPlaceOrder(responseJSON);
+                                }).error(function () {
+                                    popupModal.modal("closeModal");
+                                    self.isPlaceOrderActionAllowed(true);
+                                    fullScreenLoader.stopLoader();
+                                });
+                            },
+                            onError: function (error) {
+                                console.log(JSON.stringify(error));
+                            }
+                        });
+                    self.threeDS2ChallengeComponent.mount(threeDS2Node);
                 }
             },
             /**
@@ -148,7 +230,6 @@ define(
                     self.threeDS2ChallengeComponent = self.checkout
                         .create('threeDS2Challenge', {
                             challengeToken: token,
-                            size: '05',
                             onComplete: function (result) {
                                 self.threeDS2ChallengeComponent.unmount();
                                 self.closeModal(popupModal);
