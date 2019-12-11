@@ -17,7 +17,7 @@ class Deny extends \Riskified\Decider\Controller\AdviceAbstract
     {
         $adviseEnabled = $this->isEnabled();
         if($adviseEnabled == 0){
-            return  $this->resultJsonFactory->create()->setData(['advice_status' => 3]);
+            return  $this->resultJsonFactory->create()->setData(['advice_status' => 'disabled']);
         }
         $payload = $this->request->getParams();
         $quoteId = $this->getQuoteId($payload['quote_id']);
