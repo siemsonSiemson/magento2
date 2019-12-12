@@ -43,16 +43,12 @@ define([
                     adviceStatus = status.advice_status;
                 });
 
-                if(adviceStatus === true){
+                if(adviceStatus === true || adviceStatus == 'disabled'){
                     callback();
                     return;
                 } else {
                     if (adviceStatus == 3){
                         self.showError(riskifiedMessage);
-                        return;
-                    } else if (adviceStatus == 'disabled'){
-                        callback();
-
                         return;
                     } else {
                         verify3DSecure.setConfig(config[verify3DSecure.getCode()]);

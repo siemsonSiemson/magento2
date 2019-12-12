@@ -61,40 +61,25 @@ define(
                         self.basicThreeDValidators(response);
                         quote.setThreeDSecureStatus(quoteThreeDSecureState + 1);
                     }else{
-                        if(threeDS2Status == "disabled"){
-                            var self = this;
-                            var response = JSON.parse(responseJSON);
-
-                            if (!!response.threeDS2) {
-                                // render component
-                                self.renderThreeDS2ComponentOriginal(response.type, response.token);
-                            } else {
+                        if (threeDS2Status == 3) {
+                            fullScreenLoader.stopLoader();
+                            self.isPlaceOrderActionAllowed(false);
+                            alert.showError("The order was declined.");
+                        } else if(!!response.threeDS2) {
+                            // render 3D Secure iframe component
+                            self.renderThreeDS2Component(response.type, response.token);
+                        } else {
+                            //when 3Dsecure not enabled in admin but Riskifed requires it.
+                            if(threeDS2Status !== true){
+                                self.basicThreeDValidators(response);
+                            }else{
                                 window.location.replace(url.build(
                                     window.checkoutConfig.payment[quote.paymentMethod().method].redirectUrl)
                                 );
                             }
-                            quote.setThreeDSecureStatus(quoteThreeDSecureState + 1);
-                        } else {
-                            if (threeDS2Status == 3) {
-                                fullScreenLoader.stopLoader();
-                                self.isPlaceOrderActionAllowed(false);
-                                alert.showError("The order was declined.");
-                            } else if(!!response.threeDS2) {
-                                // render 3D Secure iframe component
-                                self.renderThreeDS2Component(response.type, response.token);
-                            } else {
-                                //when 3Dsecure not enabled in admin but Riskifed requires it.
-                                if(threeDS2Status !== true){
-                                    self.basicThreeDValidators(response);
-                                }else{
-                                    window.location.replace(url.build(
-                                        window.checkoutConfig.payment[quote.paymentMethod().method].redirectUrl)
-                                    );
-                                }
-                            }
-                            //change quote 3D Secure state
-                            quote.setThreeDSecureStatus(quoteThreeDSecureState + 1);
                         }
+                        //change quote 3D Secure state
+                        quote.setThreeDSecureStatus(quoteThreeDSecureState + 1);
                     }
                 }else{
                     self.basicThreeDValidators(response);
