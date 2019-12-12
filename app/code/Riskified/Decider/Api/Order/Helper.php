@@ -17,7 +17,9 @@ class Helper
     private $_categoryFactory;
     private $_storeManager;
     private $_groupRepository;
+    private $_registry;
     public function __construct(
+        \Magento\Framework\Registry $registry,
         GroupRepository $groupRepository,
         \Magento\Framework\Logger\Monolog $logger,
         \Riskified\Decider\Api\Config $apiConfig,
@@ -29,6 +31,7 @@ class Helper
         \Magento\Store\Model\StoreManagerInterface $storeManager
     )
     {
+        $this->_registry = $registry;
         $this->_logger = $logger;
         $this->_groupRepository = $groupRepository;
         $this->_messageManager = $messageManager;
@@ -198,6 +201,22 @@ class Helper
         }
         return $line_items;
     }
+    public function getCreditMemoFromRegistry()
+    {
+        return $this->_registry->registry('creditMemo');
+    }
+    public function buildRefundDetailsObject($payload)
+    {
+        $refundObject = new Model\RefundDetails(array_filter(array(
+            'refund_id' => $payload->getIncrementId(),
+            'amount' => $payload->getSubtotal(),
+            'currency' => $payload->getBaseCurrencyCode(),
+            'refunded_at' => $payload->getCreatedAt(),
+            'reason' => $payload->getCustomerNote()
+        ), 'strlen'));
+
+        return $refundObject;
+    }
     public function getRefundDetails()
     {
         $order = $this->getOrder();
@@ -205,16 +224,14 @@ class Helper
         $refundObjectCollection = array();
         if($creditMemos->getSize() > 0){
             foreach($creditMemos as $memo){
-                $refundObject = new Model\RefundDetails(array_filter(array(
-                    'refund_id' => $memo->getIncrementId(),
-                    'amount' => $memo->getSubtotal(),
-                    'currency' => $memo->getBaseCurrencyCode(),
-                    'refunded_at' => $memo->getCreatedAt(),
-                    'reason' => $memo->getCustomerNote()
-                ), 'strlen'));
-                array_push($refundObjectCollection, $refundObject);
+                array_push($refundObjectCollection, $this->buildRefundDetailsObject($memo));
             }
         }
+        $currentMemo = $this->getCreditMemoFromRegistry();
+        if(!is_null($currentMemo)){
+            array_push($refundObjectCollection, $this->buildRefundDetailsObject($currentMemo));
+        }
+
         return $refundObjectCollection;
     }
     public function getAddress($address)
