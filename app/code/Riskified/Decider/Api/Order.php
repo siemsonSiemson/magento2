@@ -227,9 +227,11 @@ class Order
         $order->line_items = $this->_orderHelper->getLineItems();
         $order->shipping_lines = $this->_orderHelper->getShippingLines();
         $refundDetails = $this->_orderHelper->getRefundDetails();
-        
+
         if(empty($refundDetails) != 1){
             $order->refunds = $refundDetails;
+        }else{
+            $order->refunds = 'no refunds';
         }
 
         if (!$this->_backendAuthSession->isLoggedIn()) {
