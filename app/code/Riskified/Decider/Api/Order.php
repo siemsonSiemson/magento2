@@ -4,6 +4,7 @@ namespace Riskified\Decider\Api;
 use Riskified\Common\Signature;
 use Riskified\OrderWebhook\Model;
 use Riskified\OrderWebhook\Transport;
+use Magento\Framework\App\Config\ScopeConfigInterface;
 
 class Order
 {
@@ -15,10 +16,11 @@ class Order
     private $_messageManager;
     private $_backendAuthSession;
     private $_orderFactory;
-    private $logger;
+    private $_logger;
     private $session;
-    private $date;
-    private $queueFactory;
+    private $_date;
+    private $_queueFactory;
+    private $_scopeConfig;
 
     public function __construct(
         Api $api,
@@ -31,7 +33,8 @@ class Order
         \Magento\Sales\Model\Order $orderFactory,
         \Magento\Framework\Stdlib\DateTime\DateTime $date,
         \Riskified\Decider\Model\QueueFactory $queueFactory,
-        \Magento\Framework\Session\SessionManagerInterface $session
+        \Magento\Framework\Session\SessionManagerInterface $session,
+        ScopeConfigInterface $scopeConfig
 
     )
     {
@@ -43,10 +46,11 @@ class Order
         $this->_backendAuthSession = $backendAuthSession;
         $this->_messageManager = $messageManager;
         $this->_orderFactory = $orderFactory;
-        $this->logger = $logger;
+        $this->_logger = $logger;
         $this->session = $session;
-        $this->date = $date;
-        $this->queueFactory = $queueFactory;
+        $this->_date = $date;
+        $this->_queueFactory = $queueFactory;
+        $this->_scopeConfig = $scopeConfig;
 
         $this->_api->initSdk();
     }
@@ -232,7 +236,7 @@ class Order
             return;
         }
 
-        $this->logger->log('Dispatching event for order ' . $order->getId() . ' with status "' . $status .
+        $this->_logger->log('Dispatching event for order ' . $order->getId() . ' with status "' . $status .
             '" old status "' . $oldStatus . '" and description "' . $description . '"');
         $eventData = array(
             'order' => $order,
@@ -309,25 +313,25 @@ class Order
 
     public function scheduleSubmissionRetry(\Magento\Sales\Model\Order $order, $action)
     {
-        $this->logger->log("Scheduling submission retry for order " . $order->getId());
+        $this->_logger->log("Scheduling submission retry for order " . $order->getId());
 
         try {
-            $existingRetries = $this->queueFactory->create()->getCollection()
+            $existingRetries = $this->_queueFactory->create()->getCollection()
                 ->addFieldToFilter('order_id', $order->getId())
                 ->addFieldToFilter('action', $action);
 
             if ($existingRetries->getSize() == 0) {
-                $queue = $this->queueFactory->create();
+                $queue = $this->_queueFactory->create();
                 $queue->addData(array(
                         'order_id' => $order->getId(),
                         'action' => $action,
-                        'updated_at' => $this->date->gmtDate()
+                        'updated_at' => $this->_date->gmtDate()
                 ))->save();
 
-                $this->logger->log("New retry scheduled successfully");
+                $this->_logger->log("New retry scheduled successfully");
             }
         } catch (\Exception $e) {
-            $this->logger->logException($e);
+            $this->_logger->logException($e);
         }
     }
 
@@ -357,7 +361,7 @@ class Order
             $gateway = $model->getPayment()->getMethod();
         }
         $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
-        $bin = $this->scopeConfig->getValue(self::XML_ADVISE_BIN, $storeScope);
+        $bin = $this->_scopeConfig->getValue(self::XML_ADVISE_BIN, $storeScope);
         $order_array = [
             'id' => (int) $model->getQuoteId(),
             'name' => $model->getIncrementId(),
@@ -413,7 +417,7 @@ class Order
             $gateway = $model->getPayment()->getMethod();
         }
         $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
-        $bin = $this->scopeConfig->getValue(self::XML_ADVISE_BIN, $storeScope);
+        $bin = $this->_scopeConfig->getValue(self::XML_ADVISE_BIN, $storeScope);
         $order_array = [
             'id' => (int) $model->getQuoteId(),
             'name' => $model->getIncrementId(),
@@ -422,7 +426,6 @@ class Order
             'currency' => $model->getOrderCurrencyCode(),
             'updated_at' => $this->_orderHelper->formatDateAsIso8601($model->getUpdatedAt()),
             'gateway' => $gateway,
-//            'browser_ip' => $this->_orderHelper->getRemoteIp(),
             'note' => $model->getCustomerNote(),
             'total_price' => $model->getGrandTotal(),
             'total_discounts' => $model->getDiscountAmount(),
@@ -431,7 +434,6 @@ class Order
             'taxes_included' => true,
             'total_tax' => $model->getBaseTaxAmount(),
             'total_weight' => $model->getWeight(),
-//            'cancelled_at' => $this->_orderHelper->formatDateAsIso8601($this->_orderHelper->getCancelledAt()),
             'financial_status' => $model->getState(),
             'fulfillment_status' => $model->getStatus(),
             'vendor_id' => $model->getStoreId(),
@@ -441,7 +443,6 @@ class Order
                 'exemption_method' => '3ds'
             ]),
             'bin' => $bin
-//            'cart_token' => $this->session->getSessionId()
         ];
 
         if ($this->_orderHelper->getCustomerSession()->isLoggedIn()) {

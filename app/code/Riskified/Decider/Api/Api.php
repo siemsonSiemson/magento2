@@ -15,7 +15,9 @@ class Api
     const ACTION_UPDATE = 'update';
     const ACTION_SUBMIT = 'submit';
     const ACTION_CANCEL = 'cancel';
+    const ACTION_REFUND = 'refund';
     const ACTION_FULFILL = 'fulfill';
+    const ACTION_CHECKOUT_DENIED = 'checkout_denied';
 
     private $version;
     private $_apiConfig;

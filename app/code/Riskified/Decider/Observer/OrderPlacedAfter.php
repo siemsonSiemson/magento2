@@ -2,6 +2,7 @@
 namespace Riskified\Decider\Observer;
 
 use Riskified\Decider\Api\Builder\Advice as AdviceBuilder;
+use \Magento\Store\Model\ScopeInterface;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Event\ObserverInterface;
 use Riskified\Decider\Api\Api;
@@ -43,7 +44,7 @@ class OrderPlacedAfter implements ObserverInterface
 
         //check current paymentMethode is included as valid to trigger 3DSecure here
         if(in_array($paymentMethod, $this->paymentMethods) == 1){
-            $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
+            $storeScope = ScopeInterface::SCOPE_STORE;
             $adviseEnabled = $this->scopeConfig->getValue(self::XML_ADVISE_ENABLED, $storeScope);
             //check whether Riskified Advise is enabled in admin settings
             if($adviseEnabled == 1){

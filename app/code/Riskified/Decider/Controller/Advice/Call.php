@@ -27,7 +27,6 @@ class Call extends \Riskified\Decider\Controller\AdviceAbstract
         $quote = $quoteFactory->create()->load($quoteId);
         //save quote object into registry
         $this->registry->register($quoteId, $quote);
-
         $this->api->initSdk();
         $this->logger->log(__('advise_log_json_build') . $quoteId);
         $this->adviceBuilder->build($params);
