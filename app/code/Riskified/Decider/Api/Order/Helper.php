@@ -198,6 +198,25 @@ class Helper
         }
         return $line_items;
     }
+    public function getRefundDetails()
+    {
+        $order = $this->getOrder();
+        $creditMemos = $order->getCreditmemosCollection();
+        $refundObjectCollection = array();
+        if($creditMemos->getSize() > 0){
+            foreach($creditMemos as $memo){
+                $refundObject = new Model\RefundDetails(array_filter(array(
+                    'refund_id' => $memo->getIncrementId(),
+                    'amount' => $memo->getSubtotal(),
+                    'currency' => $memo->getBaseCurrencyCode(),
+                    'refunded_at' => $memo->getCreatedAt(),
+                    'reason' => $memo->getCustomerNote()
+                ), 'strlen'));
+                array_push($refundObjectCollection, $refundObject);
+            }
+        }
+        return $refundObjectCollection;
+    }
     public function getAddress($address)
     {
         if (!$address) {
@@ -278,23 +297,6 @@ class Helper
                     } catch (\Exception $e) {
                     }
                     break;
-                case 'braintree_paypal':
-                    $cvv_result_code = $payment->getAdditionalInformation('cvvResponseCode');
-                    $credit_card_bin = $payment->getAdditionalInformation('bin');
-                    $houseVerification = $payment->getAdditionalInformation('avsStreetAddressResponseCode');
-                    $zipVerification = $payment->getAdditionalInformation('avsPostalCodeResponseCode');
-                    $avs_result_code = $houseVerification . ',' . $zipVerification;
-                    $payer_email = $payment->getAdditionalInformation('payerEmail');
-                    $transactionId =  $payment->getAdditionalInformation('paymentId');
-                    $payment_status = $payment->getAdditionalInformation('processorResponseText');
-
-                    return new Model\PaymentDetails(array_filter(array(
-                        'authorization_id' => $transactionId,
-                        'payer_email' => $payer_email,
-                        'payer_status' => $cvv_result_code,
-                        'payer_address_status' => $avs_result_code,
-                        'payment_status' => $payment_status,
-                    )));
                 case 'braintree_paypal':
                     $cvv_result_code = $payment->getAdditionalInformation('cvvResponseCode');
                     $credit_card_bin = $payment->getAdditionalInformation('bin');

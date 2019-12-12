@@ -226,6 +226,11 @@ class Order
         $order->payment_details = $this->_orderHelper->getPaymentDetails();
         $order->line_items = $this->_orderHelper->getLineItems();
         $order->shipping_lines = $this->_orderHelper->getShippingLines();
+        $refundDetails = $this->_orderHelper->getRefundDetails();
+        
+        if(empty($refundDetails) != 1){
+            $order->refunds = $refundDetails;
+        }
 
         if (!$this->_backendAuthSession->isLoggedIn()) {
             $order->client_details = $this->_orderHelper->getClientDetails();
