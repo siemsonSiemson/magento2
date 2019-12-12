@@ -2,6 +2,7 @@
 namespace Riskified\Decider\Api\Order;
 
 use Riskified\OrderWebhook\Model;
+use Magento\Customer\Model\ResourceModel\GroupRepository;
 
 class Helper
 {
@@ -15,7 +16,9 @@ class Helper
     private $_orderFactory;
     private $_categoryFactory;
     private $_storeManager;
+    private $_groupRepository;
     public function __construct(
+        GroupRepository $groupRepository,
         \Magento\Framework\Logger\Monolog $logger,
         \Riskified\Decider\Api\Config $apiConfig,
         Log $apiLogger,
@@ -27,6 +30,7 @@ class Helper
     )
     {
         $this->_logger = $logger;
+        $this->_groupRepository = $groupRepository;
         $this->_messageManager = $messageManager;
         $this->_apiConfig = $apiConfig;
         $this->_apiLogger = $apiLogger;
@@ -104,6 +108,7 @@ class Helper
             $customer_details = $this->_customerFactory->load($customer_id);
             $customer_props['created_at'] = $this->formatDateAsIso8601($customer_details->getCreatedAt());
             $customer_props['updated_at'] = $this->formatDateAsIso8601($customer_details->getUpdatedAt());
+            $customer_props['account_type'] = $this->getCustomerGroupCode($customer_details->getGroupId());
             try {
                 $customer_orders = $this->_orderFactory->create()->addFieldToFilter('customer_id', $customer_id);
                 $customer_orders_count = $customer_orders->getSize();
@@ -126,6 +131,12 @@ class Helper
     {
         $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
         return $objectManager->get('Magento\Customer\Model\Session');
+    }
+    public function getCustomerGroupCode($groupId)
+    {
+        $customerGroup = $this->_groupRepository->getById($groupId);
+        $code = $customerGroup->getCode();
+        return $code;
     }
     public function getLineItems()
     {
@@ -277,6 +288,22 @@ class Helper
                     $transactionId =  $payment->getAdditionalInformation('paymentId');
                     $payment_status = $payment->getAdditionalInformation('processorResponseText');
 
+                    return new Model\PaymentDetails(array_filter(array(
+                        'authorization_id' => $transactionId,
+                        'payer_email' => $payer_email,
+                        'payer_status' => $cvv_result_code,
+                        'payer_address_status' => $avs_result_code,
+                        'payment_status' => $payment_status,
+                    )));
+                case 'braintree_paypal':
+                    $cvv_result_code = $payment->getAdditionalInformation('cvvResponseCode');
+                    $credit_card_bin = $payment->getAdditionalInformation('bin');
+                    $houseVerification = $payment->getAdditionalInformation('avsStreetAddressResponseCode');
+                    $zipVerification = $payment->getAdditionalInformation('avsPostalCodeResponseCode');
+                    $avs_result_code = $houseVerification . ',' . $zipVerification;
+                    $payer_email = $payment->getAdditionalInformation('payerEmail');
+                    $transactionId =  $payment->getAdditionalInformation('paymentId');
+                    $payment_status = $payment->getAdditionalInformation('processorResponseText');
                     return new Model\PaymentDetails(array_filter(array(
                         'authorization_id' => $transactionId,
                         'payer_email' => $payer_email,
