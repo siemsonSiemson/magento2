@@ -2,6 +2,7 @@
 namespace Riskified\Decider\Api\Order;
 
 use Riskified\OrderWebhook\Model;
+
 class Helper
 {
     private $_order;
@@ -13,7 +14,10 @@ class Helper
     private $_orderFactory;
     private $_categoryFactory;
     private $_storeManager;
+    private $_registry;
+
     public function __construct(
+        \Magento\Framework\Registry $registry,
         \Magento\Framework\Logger\Monolog $logger,
         \Riskified\Decider\Api\Config $apiConfig,
         Log $apiLogger,
@@ -24,6 +28,7 @@ class Helper
         \Magento\Store\Model\StoreManagerInterface $storeManager
     )
     {
+        $this->_registry = $registry;
         $this->_logger = $logger;
         $this->_messageManager = $messageManager;
         $this->_apiConfig = $apiConfig;
@@ -33,14 +38,17 @@ class Helper
         $this->_categoryFactory = $categoryFactory;
         $this->_storeManager = $storeManager;
     }
+
     public function setOrder($model)
     {
         $this->_order = $model;
     }
+
     public function getOrder()
     {
         return $this->_order;
     }
+
     public function getOrderOrigId()
     {
         if (!$this->getOrder()) {
@@ -48,6 +56,7 @@ class Helper
         }
         return $this->getOrder()->getId() . '_' . $this->getOrder()->getIncrementId();
     }
+
     public function getDiscountCodes()
     {
         $code = $this->getOrder()->getDiscountDescription();
@@ -59,16 +68,35 @@ class Helper
             )));
         return null;
     }
+
+    public function getCreditMemoFromRegistry()
+    {
+        return $this->_registry->registry('creditMemo');
+    }
+    public function buildRefundDetailsObject($payload)
+    {
+        $refundObject = new Model\RefundDetails(array_filter(array(
+            'refund_id' => $payload->getIncrementId(),
+            'amount' => $payload->getSubtotal(),
+            'currency' => $payload->getBaseCurrencyCode(),
+            'refunded_at' => $payload->getCreatedAt(),
+            'reason' => $payload->getCustomerNote()
+        ), 'strlen'));
+        return $refundObject;
+    }
+
     public function getShippingAddress()
     {
         $mageAddr = $this->getOrder()->getShippingAddress();
         return $this->getAddress($mageAddr);
     }
+
     public function getBillingAddress()
     {
         $mageAddr = $this->getOrder()->getBillingAddress();
         return $this->getAddress($mageAddr);
     }
+
     public function getClientDetails()
     {
         $om = \Magento\Framework\App\ObjectManager::getInstance();
@@ -79,26 +107,26 @@ class Helper
             'user_agent' => $httpHeader->getHttpUserAgent()
         ), 'strlen'));
     }
+
     public function getRefundDetails()
     {
         $order = $this->getOrder();
         $creditMemos = $order->getCreditmemosCollection();
         $refundObjectCollection = array();
+
         if($creditMemos->getSize() > 0){
             foreach($creditMemos as $memo){
-                $refundObject = new Model\RefundDetails(array_filter(array(
-                    'refund_id' => $memo->getIncrementId(),
-                    'amount' => $memo->getSubtotal(),
-                    'currency' => $memo->getBaseCurrencyCode(),
-                    'refunded_at' => $memo->getCreatedAt(),
-                    'reason' => $memo->getCustomerNote()
-                ), 'strlen'));
-                array_push($refundObjectCollection, $refundObject);
+                array_push($refundObjectCollection, $this->buildRefundDetailsObject($memo));
             }
         }
 
+        $currentMemo = $this->getCreditMemoFromRegistry();
+        if(!is_null($currentMemo)){
+            array_push($refundObjectCollection, $this->buildRefundDetailsObject($currentMemo));
+        }
         return $refundObjectCollection;
     }
+
     public function getCustomer()
     {
         $customer_id = $this->getOrder()->getCustomerId();
@@ -132,11 +160,13 @@ class Helper
         }
         return new Model\Customer(array_filter($customer_props, 'strlen'));
     }
+
     public function getCustomerSession()
     {
         $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
         return $objectManager->get('Magento\Customer\Model\Session');
     }
+
     public function getLineItems()
     {
         $line_items = array();
@@ -145,6 +175,7 @@ class Helper
         }
         return $line_items;
     }
+
     public function getAllLineItems()
     {
         $line_items = array();
@@ -153,6 +184,7 @@ class Helper
         }
         return $line_items;
     }
+
     protected function getPreparedLineItem($item) {
         $prod_type = null;
         $prod_type = null;
@@ -197,6 +229,7 @@ class Helper
         }
         return $line_items;
     }
+
     public function getAddress($address)
     {
         if (!$address) {
@@ -227,6 +260,7 @@ class Helper
         }
         return new Model\Address($addrArray);
     }
+
     public function getPaymentDetails()
     {
         $payment = $this->getOrder()->getPayment();
@@ -384,31 +418,39 @@ class Helper
             }
         } catch (\Exception $e) {
         }
+
         if (!isset($cvv_result_code)) {
             $cvv_result_code = $payment->getCcCidStatus();
         }
+
         if (!isset($credit_card_number)) {
             $credit_card_number = $payment->getCcLast4();
         }
+
         if (!isset($credit_card_company)) {
             $credit_card_company = $payment->getCcType();
         }
+
         if (!isset($avs_result_code)) {
             $avs_result_code = $payment->getCcAvsStatus();
         }
+
         $om = \Magento\Framework\App\ObjectManager::getInstance();
         if (!isset($credit_card_bin) || !$credit_card_bin) {
             $session = $om->get('Magento\Customer\Model\Session');
             $credit_card_bin = $session->getRiskifiedBin();
             $session->unsRiskifiedBin();
         }
+
         if (!isset($credit_card_bin) || !$credit_card_bin) {
             $coreRegistry = $om->get('Magento\Framework\Registry');
             $credit_card_bin = $coreRegistry->registry('riskified_cc_bin');
         }
+
         if (isset($credit_card_number)) {
             $credit_card_number = "XXXX-XXXX-XXXX-" . $credit_card_number;
         }
+
         return new Model\PaymentDetails(array_filter(array(
             'authorization_id' => $transactionId,
             'avs_result_code' => $avs_result_code,
@@ -418,6 +460,7 @@ class Helper
             'credit_card_bin' => $credit_card_bin
         ), 'strlen'));
     }
+
     public function getShippingLines()
     {
         return new Model\ShippingLine(array_filter(array(
@@ -426,6 +469,7 @@ class Helper
             'code' => $this->getOrder()->getShippingMethod()
         ), 'strlen'));
     }
+
     public function getCancelledAt()
     {
         $commentCollection = $this->getOrder()->getStatusHistoryCollection();
@@ -436,6 +480,7 @@ class Helper
         }
         return null;
     }
+
     public function getOrderCancellation()
     {
         $orderCancellation = new Model\OrderCancellation(array_filter(array(
@@ -445,6 +490,7 @@ class Helper
         )));
         return $orderCancellation;
     }
+
     public function getOrderFulfillments()
     {
         $fulfillments = array();
@@ -468,6 +514,7 @@ class Helper
         )));
         return $orderFulfillments;
     }
+
     public function getRemoteIp()
     {
         $this->_apiLogger->log("remote ip: " . $this->getOrder()->getRemoteIp() .
@@ -491,10 +538,12 @@ class Helper
         }
         return $remoteIp;
     }
+
     public function formatDateAsIso8601($dateStr)
     {
         return ($dateStr == NULL) ? NULL : date('c', strtotime($dateStr));
     }
+
     public function isAdmin()
     {
         $om = \Magento\Framework\App\ObjectManager::getInstance();

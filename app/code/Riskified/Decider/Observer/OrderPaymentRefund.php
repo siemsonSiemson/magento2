@@ -9,13 +9,16 @@ class OrderPaymentRefund implements ObserverInterface
     private $logger;
     private $apiOrderLayer;
     private $messageManager;
+    private $registry;
 
     public function __construct(
+        \Magento\Framework\Registry $registry,
         \Riskified\Decider\Api\Log $logger,
         \Riskified\Decider\Api\Order $orderApi,
         \Magento\Framework\Message\ManagerInterface $messageManager
     )
     {
+        $this->registry = $registry;
         $this->logger = $logger;
         $this->apiOrderLayer = $orderApi;
         $this->messageManager = $messageManager;
@@ -25,6 +28,8 @@ class OrderPaymentRefund implements ObserverInterface
     {
         try {
             $order = $observer->getPayment()->getOrder();
+            $creditMemo = $observer->getEvent()->getCreditmemo();
+            $this->saveMemoInRegistry($creditMemo);
             $this->apiOrderLayer->post($order, Api::ACTION_REFUND);
         } catch(\Exception $e) {
             $this->messageManager->addErrorMessage(
@@ -32,5 +37,10 @@ class OrderPaymentRefund implements ObserverInterface
             );
             $this->logger->logException($e);
         }
+    }
+
+    public function saveMemoInRegistry($creditMemo)
+    {
+        $this->registry->register('creditMemo', $creditMemo);
     }
 }
