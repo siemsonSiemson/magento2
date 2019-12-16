@@ -72,6 +72,8 @@ class Order extends AbstractModel {
         'vendor_name' => 'string optional',
         'refunds' => 'array(object \RefundDetails)',
         'source' => 'string optional',
+        'authentication_type' => 'object \AuthenticationType optional',
+        'bin' => 'string optional',
 
         'shipping_address' => 'object \Address optional',
         'billing_address' => 'object \Address optional',

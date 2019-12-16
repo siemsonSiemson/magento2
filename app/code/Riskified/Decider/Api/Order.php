@@ -373,7 +373,7 @@ class Order
         $storeScope = \Magento\Store\Model\ScopeInterface::SCOPE_STORE;
         $bin = $this->_scopeConfig->getValue(self::XML_ADVISE_BIN, $storeScope);
         $order_array = [
-            'id' => (int) $model->getQuoteId(),
+            'id' => $model->getQuoteId(),
             'name' => $model->getIncrementId(),
             'email' => $model->getCustomerEmail(),
             'created_at' => $this->_orderHelper->formatDateAsIso8601($model->getCreatedAt()),
