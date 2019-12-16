@@ -18,6 +18,7 @@ class Helper
     private $_storeManager;
     private $_groupRepository;
     private $_registry;
+    
     public function __construct(
         \Magento\Framework\Registry $registry,
         GroupRepository $groupRepository,

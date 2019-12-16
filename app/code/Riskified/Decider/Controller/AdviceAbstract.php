@@ -1,4 +1,5 @@
 <?php
+
 namespace Riskified\Decider\Controller;
 
 use Riskified\Decider\Api\Request\Advice as AdviceRequest;
@@ -15,54 +16,67 @@ use Magento\Framework\Registry;
 abstract class AdviceAbstract extends \Magento\Framework\App\Action\Action
 {
     const XML_ADVISE_ENABLED = 'riskified/riskified_advise_process/enabled';
+
     /**
      * @var ScopeConfigInterface
      */
     protected $scopeConfig;
+
     /**
      * @var Registry
      */
     protected $registry;
+
     /**
      * @var AdviceBuilder
      */
     protected $adviceBuilder;
+
     /**
      * @var AdviceRequest
      */
     protected $adviceRequest;
+
     /**
      * @var Api
      */
     protected $api;
+
     /**
      * @var Logger
      */
     protected $logger;
+
     /**
      * @var \Magento\Checkout\Model\Session
      */
     protected $session;
+
     /**
      * @var \Magento\Framework\App\RequestInterface
      */
     protected $request;
+
     /**
      * @var OrderApi
      */
     protected $apiOrderLayer;
+
     /**
      * @var QuoteFactory
      */
     protected $quoteFactory;
+
     /**
      * @var OrderFactory
      */
     protected $orderFactory;
+
     /**
      * @var QuoteIdMaskFactory
      */
     protected $quoteIdMaskFactory;
+
     /**
      * @var \Magento\Framework\Controller\Result\JsonFactory
      */
@@ -124,6 +138,7 @@ abstract class AdviceAbstract extends \Magento\Framework\App\Action\Action
     {
         $orderFactory = $this->orderFactory->create();
         $order = $orderFactory->loadByAttribute('quote_id', $quote->getEntityId());
+        
         //when order hasn't been already set use quote instead
         if(is_numeric($order->getEntityId()) != 1){
             $order = $quote;

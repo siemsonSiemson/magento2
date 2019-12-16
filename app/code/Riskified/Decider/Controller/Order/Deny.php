@@ -23,11 +23,14 @@ class Deny extends \Riskified\Decider\Controller\AdviceAbstract
         $quoteId = $this->getQuoteId($payload['quote_id']);
         $quoteFactory = $this->quoteFactory;
         $quote = $quoteFactory->create()->load($quoteId);
+
         if(!is_null($quote)){
             $message = __('deny_controller_deny') . $quoteId;
+            
             //saves 3D Secure Response data in quotePayment table (additional data)
             $payload['date'] = $currentDate = date('Y-m-d H:i:s', time());
             $this->updateQuotePaymentDetailsInDb($quote, $payload);
+
             //Riskified defined order as fraud - order data is send to Riskified
             $this->sendDeniedOrderToRiskified($quote);
             $this->logger->log($message);

@@ -1,4 +1,5 @@
 <?php
+
 namespace Riskified\Decider\Api\Builder;
 
 use Riskified\Decider\Api\Request\Advice as AdviceRequest;
@@ -12,26 +13,32 @@ class Advice {
      * @var AdviceRequest
      */
     private $adviceRequestModel;
+
     /**
      * @var Session
      */
     private $checkoutSession;
+
     /**
      * @var
      */
     private $json;
+
     /**
      * @var Json
      */
     private $serializer;
+
     /**
      * @var QuoteIdMaskFactory
      */
     private $quoteIdMaskFactory;
+
     /**
      * @var CartRepositoryInterface
      */
     protected $cartRepository;
+
     /**
      * Advice constructor.
      * @param QuoteIdMaskFactory $quoteIdMaskFactory
@@ -53,6 +60,7 @@ class Advice {
         $this->cartRepository = $cartRepository;
         $this->serializer = $serializer;
     }
+
     /**Magento\Quote\Model\Quote\Interceptor
      * @param $params
      * @return $this
@@ -107,6 +115,7 @@ class Advice {
 
         return $this;
     }
+    
     /**
      * @return mixed
      * @throws \Riskified\OrderWebhook\Exception\CurlException

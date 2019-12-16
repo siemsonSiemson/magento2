@@ -17,10 +17,11 @@ class Order
     private $_backendAuthSession;
     private $_orderFactory;
     private $_logger;
-    private $session;
+    private $_session;
     private $_date;
     private $_queueFactory;
     private $_scopeConfig;
+    private $_apiConfig;
 
     public function __construct(
         Api $api,
@@ -47,7 +48,7 @@ class Order
         $this->_messageManager = $messageManager;
         $this->_orderFactory = $orderFactory;
         $this->_logger = $logger;
-        $this->session = $session;
+        $this->_session = $session;
         $this->_date = $date;
         $this->_queueFactory = $queueFactory;
         $this->_scopeConfig = $scopeConfig;
@@ -177,7 +178,7 @@ class Order
             $gateway = $model->getPayment()->getMethod();
         }
         if(is_null($model->getRiskifiedCartToken())){
-            $cartToken = $this->session->getSessionId();
+            $cartToken = $this->_session->getSessionId();
             //save card_token into db
             $model->setRiskifiedCartToken($cartToken);
             $model->save();

@@ -21,10 +21,12 @@ class Call extends \Riskified\Decider\Controller\AdviceAbstract
         if($adviseEnabled == 0){
             return  $this->resultJsonFactory->create()->setData(['advice_status' => 'disabled']);
         }
+
         $params = $this->request->getParams();
         $quoteId = $this->getQuoteId($params['quote_id']);
         $quoteFactory = $this->quoteFactory;
         $quote = $quoteFactory->create()->load($quoteId);
+
         //save quote object into registry
         $this->registry->register($quoteId, $quote);
         $this->api->initSdk();
@@ -34,6 +36,7 @@ class Call extends \Riskified\Decider\Controller\AdviceAbstract
         $status = $callResponse->checkout->status;
         $authType = $callResponse->checkout->authentication_type->auth_type;
         $this->logger->log(__('advise_log_status') . $status);
+
         //use this status while backend order validation
         $this->session->setAdviceCallStatus($status);
         if($status != "captured"){
@@ -57,6 +60,7 @@ class Call extends \Riskified\Decider\Controller\AdviceAbstract
                 'auth_type' => $authType,
                 'status' => $status
             );
+
             if($authType == "sca"){
                 $adviceCallStatus = false;
                 $message = __('advice_sca');
@@ -64,6 +68,7 @@ class Call extends \Riskified\Decider\Controller\AdviceAbstract
                 $adviceCallStatus = true;
                 $message = __('advice_tra');
             }
+
             //saves advise call returned data in quote Payment (additional data)
             $this->updateQuotePaymentDetailsInDb($quoteId, $paymentDetails);
         }
@@ -89,6 +94,7 @@ class Call extends \Riskified\Decider\Controller\AdviceAbstract
             if (!is_array($additionalData)) {
                 $additionalData = [];
             }
+            
             $additionalData[$paymentDetails['auth_type']] = $paymentDetails;
             $additionalData = json_encode($additionalData);
             try {
