@@ -85,6 +85,15 @@ class OrderPlacedAfter implements ObserverInterface
         $this->logger->addInfo(sprintf(__('advise_log_first_fraud'), $quote->getEntityId()));
         $this->adviceBuilder->build(['quote_id' => $quote->getEntityId()]);
         $callResponse = $this->adviceBuilder->request();
+
+        //in case when riskified call return error
+        if(!isset($callResponse->checkout)){
+            $apiCallResponse = json_decode($callResponse);
+            $logMessage = sprintf('Payment Refused - Riskified error. Status: %s. Error content: %s', $apiCallResponse->status, $apiCallResponse->error);
+            $this->logger->log($logMessage);
+            $isFraud = false;
+            return $isFraud;
+        }
         $status = $callResponse->checkout->status;
         $authType = $callResponse->checkout->authentication_type->auth_type;
         if($status != "captured"){

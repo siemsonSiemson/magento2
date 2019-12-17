@@ -90,25 +90,27 @@ class Advice {
         $currencyObject = $cart->getCurrency();
         $customerObject = $cart->getCustomer();
         $paymentObject = $cart->getPayment();
-
+        $ccCompany = $paymentObject->getCcType() ? $paymentObject->getCcType() : 'Visa';
+        $gateway = $paymentObject->getMethod() ? $paymentObject->getMethod() : 'Braintree';
+        $email = isset($params['email']) ? $params['email'] : $customerObject->getEmail();
         $this->json = $this->serializer->serialize(
             [
                 "checkout" => [
                     "id" => $cart->getId(),
-                    "email" => isset($params['email']) ? $params['email'] : $customerObject->getEmail(),
+                    "email" => $email,
                     "currency" => $currencyObject->getQuoteCurrencyCode(),
                     "total_price" => $cart->getGrandTotal(),
                     "payment_details" => [
                         [
                             "avs_result_code" => "Y",
                             "credit_card_bin" => "492044",
-                            "credit_card_company" => "Visa",
+                            "credit_card_company" => $ccCompany,
                             "credit_card_number" => "4111111111111111",
                             "cvv_result_code" => "M"
                         ]
                     ],
                     "_type" => 'credit_card',
-                    "gateway" => $paymentObject->getMethod(),
+                    "gateway" => $gateway,
                 ]
             ]
         );
@@ -123,7 +125,8 @@ class Advice {
      */
     public function request()
     {
-        $response =  $this->adviceRequestModel->call($this->json);
+        $response = $this->adviceRequestModel->call($this->json);
+
         return $response;
     }
 }
