@@ -32,6 +32,13 @@ class Call extends \Riskified\Decider\Controller\AdviceAbstract
         $this->logger->log(__('advise_log_json_build') . $quoteId);
         $this->adviceBuilder->build($params);
         $callResponse = $this->adviceBuilder->request();
+        //in case when riskified call return error
+        if(!isset($callResponse->checkout)){
+            $apiCallResponse = json_decode($callResponse);
+            $logMessage = sprintf('Payment Refused - Riskified error. Status: %s. Error content: %s', $apiCallResponse->status, $apiCallResponse->error);
+            $this->logger->log($logMessage);
+            return  $this->resultJsonFactory->create()->setData(['advice_status' => 'disabled']);
+        }
         $status = $callResponse->checkout->status;
         $authType = $callResponse->checkout->authentication_type->auth_type;
         $this->logger->log(__('advise_log_status') . $status);

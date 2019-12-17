@@ -1,13 +1,13 @@
 <?php
 namespace Riskified\Decider\Model\Api\Request;
 
-use Riskified\OrderWebhook\Transport\CurlTransport;
+use Riskified\OrderWebhook\Transport\AdviseCurlTransport;
 use Riskified\Common\Signature\HttpDataSignature;
 /**
  * Class Advice
  * @package Riskified\Decider\Api\Request
  */
-class Advice extends CurlTransport {
+class Advice extends AdviseCurlTransport {
 
     public function __construct()
     {
