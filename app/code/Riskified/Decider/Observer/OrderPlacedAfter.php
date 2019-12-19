@@ -11,7 +11,7 @@ class OrderPlacedAfter implements ObserverInterface
 {
     const XML_ADVISE_ENABLED = 'riskified/riskified_advise_process/enabled';
 
-    private $paymentMethods = ['adyen_cc'];
+    private $paymentMethods = ['adyen_cc', 'authorizenet_directpost'];
     private $adviceBuilder;
     private $scopeConfig;
     private $logger;
