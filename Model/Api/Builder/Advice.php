@@ -58,11 +58,6 @@ class Advice {
     public function build($params)
     {
         $quoteId = $params['quote_id'];
-        if(isset($params['gateway'])){
-            $gateway = $params['gateway'];
-        }else{
-            $gateway = '';
-        }
         try {
             if (!is_numeric($quoteId)) {
                 $quoteIdMask = $this->quoteIdMaskFactory->create()->load($quoteId, 'masked_id');
