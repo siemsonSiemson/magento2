@@ -95,7 +95,7 @@ class Order
                     $response = $transport->fulfillOrder($orderForTransport);
                     break;
                 case Api::ACTION_REFUND:
-                    $orderForTransport = $this->load($order);
+                    $orderForTransport = $this->loadRefund();
                     $response = $transport->refundOrder($orderForTransport);
                     break;
                 case Api::ACTION_CHECKOUT_DENIED:
@@ -171,6 +171,15 @@ class Order
         return $objectManager->get('Magento\Customer\Model\Session');
     }
 
+    private function loadRefund()
+    {
+        $refund = new Model\Refund(array_filter(['id' => $this->_orderHelper->getOrderOrigId()], 'strlen'));
+        $refundDetails = $this->_orderHelper->getRefundDetails();
+        $refund->refunds = $refundDetails;
+
+        return $refund;
+    }
+
     private function load($model)
     {
         $gateway = 'unavailable';
@@ -227,11 +236,6 @@ class Order
         $order->payment_details = $this->_orderHelper->getPaymentDetails();
         $order->line_items = $this->_orderHelper->getLineItems();
         $order->shipping_lines = $this->_orderHelper->getShippingLines();
-        $refundDetails = $this->_orderHelper->getRefundDetails();
-
-        if(empty($refundDetails) != 1){
-            $order->refunds = $refundDetails;
-        }
 
         if (!$this->_backendAuthSession->isLoggedIn()) {
             $order->client_details = $this->_orderHelper->getClientDetails();
