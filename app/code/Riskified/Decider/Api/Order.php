@@ -231,8 +231,6 @@ class Order
 
         if(empty($refundDetails) != 1){
             $order->refunds = $refundDetails;
-        }else{
-            $order->refunds = 'no refunds';
         }
 
         if (!$this->_backendAuthSession->isLoggedIn()) {
