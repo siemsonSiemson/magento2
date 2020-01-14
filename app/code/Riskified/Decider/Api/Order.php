@@ -1,6 +1,7 @@
 <?php
 namespace Riskified\Decider\Api;
 
+use function GuzzleHttp\Psr7\str;
 use Riskified\Common\Signature;
 use Riskified\OrderWebhook\Model;
 use Riskified\OrderWebhook\Transport;
@@ -173,9 +174,10 @@ class Order
 
     private function loadRefund()
     {
-        $refund = new Model\Refund(array_filter(['id' => $this->_orderHelper->getOrderOrigId()], 'strlen'));
+        $refund = new Model\Refund();
+        $refund->id = strval($this->_orderHelper->getOrderOrigId());
         $refundDetails = $this->_orderHelper->getRefundDetails();
-        $refund->refunds = $refundDetails;
+        $refund->refunds = array_filter($refundDetails, 'strlen');
 
         return $refund;
     }
