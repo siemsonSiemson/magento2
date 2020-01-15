@@ -64,7 +64,6 @@ define(
                         if (threeDS2Status == 3) {
                             fullScreenLoader.stopLoader();
                             self.isPlaceOrderActionAllowed(false);
-                            alert.showError("The order was declined.");
                         } else if(!!response.threeDS2) {
                             // render 3D Secure iframe component
                             self.renderThreeDS2Component(response.type, response.token);

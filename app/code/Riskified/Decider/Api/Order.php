@@ -23,6 +23,7 @@ class Order
     private $_queueFactory;
     private $_scopeConfig;
     private $_apiConfig;
+    private $_response;
 
     public function __construct(
         Api $api,
@@ -77,27 +78,27 @@ class Order
             switch ($action) {
                 case Api::ACTION_CREATE:
                     $orderForTransport = $this->load($order);
-                    $response = $transport->createOrder($orderForTransport);
+                    $this->_response = $transport->createOrder($orderForTransport);
                     break;
                 case Api::ACTION_UPDATE:
                     $orderForTransport = $this->load($order);
-                    $response = $transport->updateOrder($orderForTransport);
+                    $this->_response = $transport->updateOrder($orderForTransport);
                     break;
                 case Api::ACTION_SUBMIT:
                     $orderForTransport = $this->load($order);
-                    $response = $transport->submitOrder($orderForTransport);
+                    $this->_response = $transport->submitOrder($orderForTransport);
                     break;
                 case Api::ACTION_CANCEL:
                     $orderForTransport = $this->_orderHelper->getOrderCancellation();
-                    $response = $transport->cancelOrder($orderForTransport);
+                    $this->_response = $transport->cancelOrder($orderForTransport);
                     break;
                 case Api::ACTION_FULFILL:
                     $orderForTransport = $this->_orderHelper->getOrderFulfillments();
-                    $response = $transport->fulfillOrder($orderForTransport);
+                    $this->_response = $transport->fulfillOrder($orderForTransport);
                     break;
                 case Api::ACTION_REFUND:
                     $orderForTransport = $this->loadRefund();
-                    $response = $transport->refundOrder($orderForTransport);
+                    $this->_response = $transport->refundOrder($orderForTransport);
                     break;
                 case Api::ACTION_CHECKOUT_DENIED:
                     if(get_class($order) == 'Magento\Quote\Model\Quote\Interceptor'){
@@ -106,10 +107,10 @@ class Order
                     }else{
                         $checkoutForTransport = $this->loadOrder($order);
                     }
-                    $response = $transport->deniedCheckout($checkoutForTransport);
+                    $this->_response = $transport->deniedCheckout($checkoutForTransport);
                     break;
             }
-            $eventData['response'] = $response;
+            $eventData['response'] = $this->_response;
 
             $this->_eventManager->dispatch(
                 'riskified_decider_post_order_success',
@@ -141,7 +142,7 @@ class Order
             );
             throw $e;
         }
-        return $response;
+        return $this->_response;
     }
 
     private function _raiseOrderUpdateEvent($order, $status, $oldStatus, $description)
@@ -221,8 +222,7 @@ class Order
             'vendor_name' => $model->getStoreName(),
             'cart_token' => $cartToken
         );
-
-
+        
         if ($this->_orderHelper->isAdmin()) {
             unset($order_array['browser_ip']);
             unset($order_array['cart_token']);
