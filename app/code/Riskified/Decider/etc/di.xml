@@ -34,6 +34,6 @@
         </arguments>
     </type>
     <type name="Magento\Framework\App\Request\CsrfValidator">
-        <plugin name="riskified_csrf_validator_skip" type="Riskified\Decider\Plugin\RiskifiedCsrfValidatorSkip" />
+        <plugin name="csrf_validator_skip" type="Riskified\Decider\Plugin\CsrfValidatorSkip" />
     </type>
 </config>

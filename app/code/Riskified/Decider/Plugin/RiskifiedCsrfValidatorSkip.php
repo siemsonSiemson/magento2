@@ -1,6 +1,6 @@
 <?php
 namespace Riskified\Decider\Plugin;
-class RiskifiedCsrfValidatorSkip
+class CsrfValidatorSkip
 {
     /**
      * @param \Magento\Framework\App\Request\CsrfValidator $subject
