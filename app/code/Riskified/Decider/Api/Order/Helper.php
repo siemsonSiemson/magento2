@@ -346,6 +346,15 @@ class Helper
                     $credit_card_company = $payment->getCcType();
                     $avs_result_code = $payment->getAdditionalInformation('address_line1_check') . ',' . $payment->getAdditionalInformation('address_zip_check');
                     break;
+                case 'cardknox':
+                    if(!null($payment->getAdditionalInformation('xAuthCode'))) {
+                        $transactionId = $payment->getAdditionalInformation('xAuthCode');
+                    }
+                    $credit_card_number = $payment->getAdditionalInformation('xMaskedCardNumber');
+                    $cvv_result_code = $payment->getAdditionalInformation('xCvvResultCode');
+                    $avs_result_code = $payment->getAdditionalInformation('xAvsResultCode');
+                    $credit_card_company = $payment->getAdditionalInformation('xCardType');
+                    break;
                 case 'chcybersource':
                     $avs_result_code = $payment->getAdditionalInformation('auth_avs_code');
                     $transactionId = $payment->getAdditionalInformation('transaction_id');
