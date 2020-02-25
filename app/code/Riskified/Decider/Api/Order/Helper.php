@@ -347,9 +347,6 @@ class Helper
                     $avs_result_code = $payment->getAdditionalInformation('address_line1_check') . ',' . $payment->getAdditionalInformation('address_zip_check');
                     break;
                 case 'cardknox':
-                    if(!null($payment->getAdditionalInformation('xAuthCode'))) {
-                        $transactionId = $payment->getAdditionalInformation('xAuthCode');
-                    }
                     $credit_card_number = $payment->getAdditionalInformation('xMaskedCardNumber');
                     $cvv_result_code = $payment->getAdditionalInformation('xCvvResultCode');
                     $avs_result_code = $payment->getAdditionalInformation('xAvsResultCode');
