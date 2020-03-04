@@ -14,10 +14,8 @@ class Helper
     private $_orderFactory;
     private $_categoryFactory;
     private $_storeManager;
-    private $_registry;
 
     public function __construct(
-        \Magento\Framework\Registry $registry,
         \Magento\Framework\Logger\Monolog $logger,
         \Riskified\Decider\Api\Config $apiConfig,
         Log $apiLogger,
@@ -28,7 +26,6 @@ class Helper
         \Magento\Store\Model\StoreManagerInterface $storeManager
     )
     {
-        $this->_registry = $registry;
         $this->_logger = $logger;
         $this->_messageManager = $messageManager;
         $this->_apiConfig = $apiConfig;
@@ -69,10 +66,6 @@ class Helper
         return null;
     }
 
-    public function getCreditMemoFromRegistry()
-    {
-        return $this->_registry->registry('creditMemo');
-    }
     public function buildRefundDetailsObject($payload)
     {
         $refundObject = new Model\RefundDetails(array_filter(array(
@@ -120,10 +113,6 @@ class Helper
             }
         }
 
-        $currentMemo = $this->getCreditMemoFromRegistry();
-        if(!is_null($currentMemo)){
-            array_push($refundObjectCollection, $this->buildRefundDetailsObject($currentMemo));
-        }
         return $refundObjectCollection;
     }
 
