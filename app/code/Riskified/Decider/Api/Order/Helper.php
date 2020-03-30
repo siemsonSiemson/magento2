@@ -346,6 +346,10 @@ class Helper
                     $credit_card_company = $payment->getCcType();
                     $avs_result_code = $payment->getAdditionalInformation('address_line1_check') . ',' . $payment->getAdditionalInformation('address_zip_check');
                     break;
+                case 'bambora_epay':
+                    $credit_card_number = $payment->getCcNumberEnc();
+                    $credit_card_company = $payment->getCcType();
+                    break;
                 case 'chcybersource':
                     $avs_result_code = $payment->getAdditionalInformation('auth_avs_code');
                     $transactionId = $payment->getAdditionalInformation('transaction_id');
